@@ -260,32 +260,73 @@ pub const Field = struct {
         if (self.name.len() == 0) {
             return SvdTranslationError.NotEnoughInfoToTranslate;
         }
+        const offset = self.bit_offset orelse return SvdTranslationError.NotEnoughInfoToTranslate;
+        const width = self.bit_width orelse return SvdTranslationError.NotEnoughInfoToTranslate;
+        const base_mask = bitWidthToMask(width);
+
+        try buffer.print("\n", .{});
+
+        if (self.description.len() > 0) {
+            try buffer.print("/// {}\n", .{self.description.toSlice()});
+        }
         try buffer.print(
-            \\/// {}
             \\const {} = struct {{
             \\    pub const offset = {};
             \\    pub const width = {};
-            \\    pub const mask = bit_width_to_mask(width) << offset;
+            \\    pub const mask = 0x{x} << offset;
             \\    pub fn val(setting: u32) u32 {{
-            \\        return (setting & bit_width_to_mask(width)) << offset;
+            \\        return (setting & 0x{x}) << offset;
             \\    }}
             \\}};
-        , .{ self.description.toSlice(), self.name.toSlice(), self.bit_offset.?, self.bit_width.? });
+            \\
+        , .{
+            self.name.toSlice(),
+            offset,
+            width,
+            base_mask,
+            base_mask,
+        });
     }
 };
 
 test "Field print" {
     var allocator = std.testing.allocator;
     const fieldDesiredPrint =
+        \\
         \\/// rngen comment
         \\const rngen = struct {
         \\    pub const offset = 2;
         \\    pub const width = 1;
-        \\    pub const mask = bit_width_to_mask(width) << offset;
+        \\    pub const mask = 0x1 << offset;
         \\    pub fn val(setting: u32) u32 {
-        \\        return (setting & bit_width_to_mask(width)) << offset;
+        \\        return (setting & 0x1) << offset;
         \\    }
         \\};
+        \\
+    ;
+
+    const fieldDesiredPrintx2 =
+        \\
+        \\/// rngen comment
+        \\const rngen = struct {
+        \\    pub const offset = 2;
+        \\    pub const width = 1;
+        \\    pub const mask = 0x1 << offset;
+        \\    pub fn val(setting: u32) u32 {
+        \\        return (setting & 0x1) << offset;
+        \\    }
+        \\};
+        \\
+        \\/// doc comment
+        \\const field_namespace = struct {
+        \\    pub const offset = 3;
+        \\    pub const width = 4;
+        \\    pub const mask = 0xf << offset;
+        \\    pub fn val(setting: u32) u32 {
+        \\        return (setting & 0xf) << offset;
+        \\    }
+        \\};
+        \\
     ;
 
     var output_buffer = try Buffer.init(allocator, "");
@@ -294,20 +335,42 @@ test "Field print" {
     var field = try Field.init(allocator);
     defer field.deinit();
 
+    var field2 = try Field.init(allocator);
+    defer field2.deinit();
+
     try field.name.append("rngen");
     try field.description.append("rngen comment");
     field.bit_offset = 2;
     field.bit_width = 1;
 
+    try field2.name.append("field_namespace");
+    try field2.description.append("doc comment");
+    field2.bit_offset = 3;
+    field2.bit_width = 4;
+
     try field.printToBuffer(&output_buffer);
     std.testing.expect(output_buffer.eql(fieldDesiredPrint));
+
+    try field2.printToBuffer(&output_buffer);
+    std.testing.expect(output_buffer.eql(fieldDesiredPrintx2));
 }
 
-fn bit_width_to_mask(comptime width: var) comptime_int {
-    return std.math.maxInt(@Type(builtin.TypeInfo{
-        .Int = .{
-            .is_signed = false,
-            .bits = width,
-        },
-    }));
+fn bitWidthToMask(width: u32) usize {
+    const max_supported_bits = 32;
+    const width_to_mask = blk: {
+        comptime var mask_array: [max_supported_bits + 1]usize = undefined;
+        inline for (mask_array) |*item, i| {
+            const i_use = if (i == 0) max_supported_bits else i;
+            item.* = std.math.maxInt(@Type(builtin.TypeInfo{
+                .Int = .{
+                    .is_signed = false,
+                    .bits = i_use,
+                },
+            }));
+        }
+        break :blk mask_array;
+    };
+    const width_to_mask_slice = width_to_mask[0..];
+
+    return width_to_mask_slice[if (width > max_supported_bits) 0 else width];
 }
