@@ -256,36 +256,45 @@ pub const Field = struct {
         self.description.deinit();
     }
 
-    pub fn printToBuffer(self: Self, buffer: *Buffer) !void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+        try output(context, "\n");
         if (self.name.len() == 0) {
-            return SvdTranslationError.NotEnoughInfoToTranslate;
+            try output(context, "// No name to print field value\n");
+            return;
         }
-        const offset = self.bit_offset orelse return SvdTranslationError.NotEnoughInfoToTranslate;
-        const width = self.bit_width orelse return SvdTranslationError.NotEnoughInfoToTranslate;
-        const base_mask = bitWidthToMask(width);
-
-        try buffer.print("\n", .{});
-
-        if (self.description.len() > 0) {
-            try buffer.print("/// {}\n", .{self.description.toSlice()});
-        }
-        try buffer.print(
+        var offset_exists: bool = false;
+        const name = self.name.toSlice();
+        const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        try std.fmt.format(context, Errors, output,
+            \\/// {}
             \\const {} = struct {{
-            \\    pub const offset = {};
-            \\    pub const width = {};
-            \\    pub const mask = 0x{x} << offset;
-            \\    pub fn val(setting: u32) u32 {{
-            \\        return (setting & 0x{x}) << offset;
-            \\    }}
-            \\}};
             \\
-        , .{
-            self.name.toSlice(),
-            offset,
-            width,
-            base_mask,
-            base_mask,
-        });
+        , .{ description, name });
+        if (self.bit_offset) |offset| {
+            try std.fmt.format(context, Errors, output,
+                \\    pub const offset = {};
+                \\
+            , .{offset});
+            offset_exists = true;
+        }
+        if (self.bit_width) |width| {
+            try std.fmt.format(context, Errors, output,
+                \\    pub const width = {};
+                \\
+            , .{width});
+            if (offset_exists) {
+                const base_mask = bitWidthToMask(width);
+                try std.fmt.format(context, Errors, output,
+                    \\    pub const mask = 0x{x} << offset;
+                    \\    pub fn val(setting: u32) u32 {{
+                    \\        return (setting & 0x{x}) << offset;
+                    \\    }}
+                    \\
+                , .{ base_mask, base_mask });
+            }
+        }
+        try output(context, "};");
+        return;
     }
 };
 
@@ -348,10 +357,10 @@ test "Field print" {
     field2.bit_offset = 3;
     field2.bit_width = 4;
 
-    try field.printToBuffer(&output_buffer);
+    try output_buffer.print("{}\n", .{field});
     std.testing.expect(output_buffer.eql(fieldDesiredPrint));
 
-    try field2.printToBuffer(&output_buffer);
+    try output_buffer.print("{}\n", .{field2});
     std.testing.expect(output_buffer.eql(fieldDesiredPrintx2));
 }
 
