@@ -243,7 +243,7 @@ pub const Register = struct {
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
         try std.fmt.format(context, Errors, output,
             \\/// {}
-            \\const {} = struct {{
+            \\pub const {} = struct {{
             \\
         , .{ description, name });
         try std.fmt.format(context, Errors, output,
@@ -345,7 +345,7 @@ pub const Field = struct {
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
         try std.fmt.format(context, Errors, output,
             \\/// {}
-            \\const {} = struct {{
+            \\pub const {} = struct {{
             \\
         , .{ description, name });
         if (self.bit_offset) |offset| {
@@ -381,7 +381,7 @@ test "Field print" {
     const fieldDesiredPrint =
         \\
         \\/// rngen comment
-        \\const rngen = struct {
+        \\pub const rngen = struct {
         \\    pub const offset = 2;
         \\    pub const width = 1;
         \\    pub const mask = 0x1 << offset;
@@ -395,7 +395,7 @@ test "Field print" {
     const fieldDesiredPrintx2 =
         \\
         \\/// rngen comment
-        \\const rngen = struct {
+        \\pub const rngen = struct {
         \\    pub const offset = 2;
         \\    pub const width = 1;
         \\    pub const mask = 0x1 << offset;
@@ -405,7 +405,7 @@ test "Field print" {
         \\};
         \\
         \\/// doc comment
-        \\const field_namespace = struct {
+        \\pub const field_namespace = struct {
         \\    pub const offset = 3;
         \\    pub const width = 4;
         \\    pub const mask = 0xf << offset;
@@ -447,7 +447,7 @@ test "Register Print" {
     const registerDesiredPrint =
         \\
         \\/// register comment
-        \\const reg_name = struct {
+        \\pub const reg_name = struct {
         \\    pub const address = 0x24000 + 0x100;
         \\    pub const size_type = u32;
         \\    pub const reset_value: size_type = 0x0;
@@ -462,7 +462,7 @@ test "Register Print" {
         \\    }
         \\
         \\/// rngen comment
-        \\const rngen = struct {
+        \\pub const rngen = struct {
         \\    pub const offset = 2;
         \\    pub const width = 1;
         \\    pub const mask = 0x1 << offset;
