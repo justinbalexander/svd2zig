@@ -496,9 +496,6 @@ test "Register Print" {
     try register.fields.append(field);
 
     try output_buffer.print("{}\n", .{register});
-    std.debug.warn("{}\n", .{output_buffer.toSliceConst()});
-    std.debug.warn("----------------------------------------\n", .{});
-    std.debug.warn("{}\n", .{registerDesiredPrint});
     std.testing.expect(output_buffer.eql(registerDesiredPrint));
 }
 
