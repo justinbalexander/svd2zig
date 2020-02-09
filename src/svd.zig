@@ -184,31 +184,35 @@ pub const Register = struct {
     name: Buffer,
     display_name: Buffer,
     description: Buffer,
+    base_address: u32, // must come from peripheral
     address_offset: ?u32,
-    size: ?u32,
-    reset_value: ?u32,
+    size: u32,
+    reset_value: u32,
     fields: Fields,
 
-    access: Access = ReadWrite,
+    access: Access = .ReadWrite,
 
     const Self = @This();
 
-    pub fn init(allocator: *Allocator) !Self {
+    pub fn init(allocator: *Allocator, base_address: u32, reset_value: u32, size: u32) !Self {
         var name = try Buffer.init(allocator, "");
         errdefer name.deinit();
         var display_name = try Buffer.init(allocator, "");
         errdefer display_name.deinit();
         var description = try Buffer.init(allocator, "");
         errdefer description.deinit();
+        var fields = Fields.init(allocator);
+        errdefer fields.deinit();
 
         return Self{
             .name = name,
             .display_name = display_name,
             .description = description,
+            .base_address = base_address,
             .address_offset = null,
-            .size = null,
-            .reset_value = null,
-            .fields = null,
+            .size = size,
+            .reset_value = reset_value,
+            .fields = fields,
         };
     }
 
@@ -216,6 +220,80 @@ pub const Register = struct {
         self.name.deinit();
         self.display_name.deinit();
         self.description.deinit();
+
+        self.fields.deinit();
+    }
+
+    pub fn isValid(self: Self) bool {
+        if (self.name.len() == 0) {
+            return false;
+        }
+        _ = self.address_offset orelse return false;
+
+        return true;
+    }
+
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+        try output(context, "\n");
+        if (!self.isValid()) {
+            try output(context, "// Not enough info to print register value\n");
+            return;
+        }
+        const name = self.name.toSlice();
+        const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        try std.fmt.format(context, Errors, output,
+            \\/// {}
+            \\const {} = struct {{
+            \\
+        , .{ description, name });
+        try std.fmt.format(context, Errors, output,
+            \\    pub const address = 0x{x} + 0x{x};
+            \\    pub const size_type = u{};
+            \\    pub const reset_value: size_type = 0x{x};
+            \\
+        , .{ self.base_address, self.address_offset.?, self.size, self.reset_value });
+        var write_mask: u32 = std.math.maxInt(u32);
+        for (self.fields.toSliceConst()) |field| {
+            if (field.bit_offset) |def_offset| {
+                if (field.bit_width) |def_width| {
+                    write_mask &= ~(bitWidthToMask(def_width) << @truncate(u5, def_offset));
+                }
+            }
+        }
+        const write_str =
+            \\    const write_mask = 0x{x};
+            \\    pub fn write(setting: size_type) void {{
+            \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
+            \\        mmio.ptr.* = setting & write_mask;
+            \\    }}
+            \\
+        ;
+        const read_str =
+            \\    pub fn read() size_type {
+            \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
+            \\        return mmio.ptr.*;
+            \\    }
+            \\
+        ;
+        switch (self.access) {
+            .ReadWrite => {
+                try std.fmt.format(context, Errors, output, write_str, .{write_mask});
+                try output(context, read_str);
+            },
+            .WriteOnly => {
+                try std.fmt.format(context, Errors, output, write_str, .{write_mask});
+            },
+            .ReadOnly => {
+                try output(context, read_str);
+            },
+        }
+        // now print fields
+        for (self.fields.toSliceConst()) |field| {
+            try std.fmt.format(context, Errors, output, "{}\n", .{field});
+        }
+
+        try output(context, "};");
+        return;
     }
 };
 
@@ -364,10 +442,70 @@ test "Field print" {
     std.testing.expect(output_buffer.eql(fieldDesiredPrintx2));
 }
 
-fn bitWidthToMask(width: u32) usize {
+test "Register Print" {
+    var allocator = std.testing.allocator;
+    const registerDesiredPrint =
+        \\
+        \\/// register comment
+        \\const reg_name = struct {
+        \\    pub const address = 0x24000 + 0x100;
+        \\    pub const size_type = u32;
+        \\    pub const reset_value: size_type = 0x0;
+        \\    const write_mask = 0xfffffffb;
+        \\    pub fn write(setting: size_type) void {
+        \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
+        \\        mmio.ptr.* = setting & write_mask;
+        \\    }
+        \\    pub fn read() size_type {
+        \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
+        \\        return mmio.ptr.*;
+        \\    }
+        \\
+        \\/// rngen comment
+        \\const rngen = struct {
+        \\    pub const offset = 2;
+        \\    pub const width = 1;
+        \\    pub const mask = 0x1 << offset;
+        \\    pub fn val(setting: u32) u32 {
+        \\        return (setting & 0x1) << offset;
+        \\    }
+        \\};
+        \\};
+        \\
+    ;
+
+    var output_buffer = try Buffer.init(allocator, "");
+    defer output_buffer.deinit();
+
+    var register = try Register.init(allocator, 0x24000, 0, 0x20);
+    defer register.deinit();
+    try register.name.append("reg_name");
+    try register.description.append("register comment");
+    register.address_offset = 0x100;
+    register.size = 0x20;
+
+    var field = try Field.init(allocator);
+    defer field.deinit();
+
+    try field.name.append("rngen");
+    try field.description.append("rngen comment");
+    field.bit_offset = 2;
+    field.bit_width = 1;
+    field.access = .ReadOnly; // effects register write fn, TODO: handle WriteOnly
+
+    try register.fields.append(field);
+
+    try output_buffer.print("{}\n", .{register});
+    std.debug.warn("{}\n", .{output_buffer.toSliceConst()});
+    std.debug.warn("----------------------------------------\n", .{});
+    std.debug.warn("{}\n", .{registerDesiredPrint});
+    std.testing.expect(output_buffer.eql(registerDesiredPrint));
+}
+
+fn bitWidthToMask(width: u32) u32 {
     const max_supported_bits = 32;
     const width_to_mask = blk: {
-        comptime var mask_array: [max_supported_bits + 1]usize = undefined;
+        comptime var mask_array: [max_supported_bits + 1]u32 = undefined;
         inline for (mask_array) |*item, i| {
             const i_use = if (i == 0) max_supported_bits else i;
             item.* = std.math.maxInt(@Type(builtin.TypeInfo{
