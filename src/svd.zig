@@ -36,6 +36,8 @@ pub const Device = struct {
         errdefer version.deinit();
         var description = try Buffer.init(allocator, "");
         errdefer description.deinit();
+        var peripherals = Peripherals.init(allocator);
+        errdefer peripherals;
 
         return Self{
             .name = name,
@@ -47,7 +49,7 @@ pub const Device = struct {
             .size = null,
             .reset_value = null,
             .reset_mask = null,
-            .peripherals = null,
+            .peripherals = peripherals,
         };
     }
 
@@ -55,6 +57,7 @@ pub const Device = struct {
         self.name.deinit();
         self.version.deinit();
         self.description.deinit();
+        self.peripherals.deinit();
     }
 };
 
