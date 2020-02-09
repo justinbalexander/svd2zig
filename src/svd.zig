@@ -176,6 +176,30 @@ pub const Interrupt = struct {
         self.name.deinit();
         self.description.deinit();
     }
+
+    pub fn isValid(self: Self) bool {
+        if (self.name.len() == 0) {
+            return false;
+        }
+        _ = self.value orelse return false;
+
+        return true;
+    }
+
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+        try output(context, "\n");
+        if (!self.isValid()) {
+            try output(context, "// Not enough info to print interrupt value\n");
+            return;
+        }
+        const name = self.name.toSlice();
+        const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        try std.fmt.format(context, Errors, output,
+            \\/// {}
+            \\pub const {} = {};
+            \\
+        , .{ description, name, value.? });
+    }
 };
 
 const Registers = ArrayList(Register);
