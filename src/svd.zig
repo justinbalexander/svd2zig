@@ -100,10 +100,11 @@ pub const Peripherals = ArrayList(Peripheral);
 pub const Peripheral = struct {
     name: Buffer,
     group_name: Buffer,
+    description: Buffer,
     base_address: ?u32,
     address_block: ?AddressBlock,
     interrupt: ?Interrupt,
-    registers: ?Registers,
+    registers: Registers,
 
     const Self = @This();
 
@@ -112,20 +113,67 @@ pub const Peripheral = struct {
         errdefer name.deinit();
         var group_name = try Buffer.init(allocator, "");
         errdefer group_name.deinit();
+        var description = try Buffer.init(allocator, "");
+        errdefer description.deinit();
+        var registers = Registers.init(allocator);
+        errdefer registers.deinit();
 
         return Self{
             .name = name,
             .group_name = group_name,
+            .description = description,
             .base_address = null,
             .address_block = null,
             .interrupt = null,
-            .registers = null,
+            .registers = registers,
         };
     }
 
     pub fn deinit(self: *Self) void {
         self.name.deinit();
         self.group_name.deinit();
+        self.description.deinit();
+        self.registers.deinit();
+    }
+
+    pub fn isValid(self: Self) bool {
+        if (self.name.len() == 0) {
+            return false;
+        }
+        _ = self.base_address orelse return false;
+
+        return true;
+    }
+
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+        try output(context, "\n");
+        if (!self.isValid()) {
+            try output(context, "// Not enough info to print register value\n");
+            return;
+        }
+        const name = self.name.toSlice();
+        const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        try std.fmt.format(context, Errors, output,
+            \\/// {}
+            \\pub const {} = struct {{
+            \\    pub const base_address = 0x{x};
+            \\
+        , .{ description, name, self.base_address.? });
+        if (self.interrupt) |interrupt_info| {
+            if (interrupt_info.value) |interrupt_num| {
+                try std.fmt.format(context, Errors, output,
+                    \\    pub const interrupt = {};
+                    \\
+                , .{interrupt_num});
+            }
+        }
+        // now print registers
+        for (self.registers.toSliceConst()) |register| {
+            try std.fmt.format(context, Errors, output, "{}\n", .{register});
+        }
+
+        try output(context, "};");
+        return;
     }
 };
 
@@ -523,6 +571,75 @@ test "Register Print" {
     std.testing.expect(output_buffer.eql(registerDesiredPrint));
 }
 
+test "Peripheral Print" {
+    var allocator = std.testing.allocator;
+    const peripheralDesiredPrint =
+        \\
+        \\/// per comment
+        \\pub const per_name = struct {
+        \\    pub const base_address = 0x24000;
+        \\
+        \\/// register comment
+        \\pub const reg_name = struct {
+        \\    pub const address = 0x24000 + 0x100;
+        \\    pub const size_type = u32;
+        \\    pub const reset_value: size_type = 0x0;
+        \\    const write_mask = 0xfffffffb;
+        \\    pub fn write(setting: size_type) void {
+        \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
+        \\        mmio.ptr.* = setting & write_mask;
+        \\    }
+        \\    pub fn read() size_type {
+        \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
+        \\        return mmio.ptr.*;
+        \\    }
+        \\
+        \\/// rngen comment
+        \\pub const rngen = struct {
+        \\    pub const offset = 2;
+        \\    pub const width = 1;
+        \\    pub const mask = 0x1 << offset;
+        \\    pub fn val(setting: u32) u32 {
+        \\        return (setting & 0x1) << offset;
+        \\    }
+        \\};
+        \\};
+        \\};
+        \\
+    ;
+
+    var output_buffer = try Buffer.init(allocator, "");
+    defer output_buffer.deinit();
+
+    var peripheral = try Peripheral.init(allocator);
+    defer peripheral.deinit();
+    try peripheral.name.append("per_name");
+    try peripheral.description.append("per comment");
+    peripheral.base_address = 0x24000;
+
+    var register = try Register.init(allocator, peripheral.base_address.?, 0, 0x20);
+    defer register.deinit();
+    try register.name.append("reg_name");
+    try register.description.append("register comment");
+    register.address_offset = 0x100;
+    register.size = 0x20;
+
+    var field = try Field.init(allocator);
+    defer field.deinit();
+
+    try field.name.append("rngen");
+    try field.description.append("rngen comment");
+    field.bit_offset = 2;
+    field.bit_width = 1;
+    field.access = .ReadOnly;
+
+    try register.fields.append(field);
+
+    try peripheral.registers.append(register);
+
+    try output_buffer.print("{}\n", .{peripheral});
+    std.testing.expect(output_buffer.eql(peripheralDesiredPrint));
+}
 fn bitWidthToMask(width: u32) u32 {
     const max_supported_bits = 32;
     const width_to_mask = blk: {
