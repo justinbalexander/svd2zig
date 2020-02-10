@@ -59,6 +59,42 @@ pub const Device = struct {
         self.description.deinit();
         self.peripherals.deinit();
     }
+
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+        const name = if (self.device_name.len() == 0) "unknown" else self.device_name.toSliceConst();
+        const version = if (self.device_version.len() == 0) "unknown" else self.device_version.toSliceConst();
+        const description = if (self.device_description.len() == 0) "unknown" else self.device_description.toSliceConst();
+        try std.fmt.format(context, Errors, output,
+            \\pub const device_name = {};
+            \\pub const device_revision = {};
+            \\pub const device_description = {};
+            \\
+        , .{ name, version, description });
+        if (self.cpu) |the_cpu| {
+            try std.fmt.format(context, Errors, output, "{}\n", .{the_cpu});
+        }
+        // now print peripherals
+        for (self.peripherals.toSliceConst()) |peripheral| {
+            try std.fmt.format(context, Errors, output, "{}\n", .{peripheral});
+        }
+        // now print interrupt table
+        try output(context, "pub const interrupts = {\n");
+        for (self.peripherals.toSliceConst()) |peripheral| {
+            if (peripheral.interrupt) |interrupt| {
+                if (interrupt.isValid()) {
+                    try std.fmt.format(
+                        context,
+                        Errors,
+                        output,
+                        "pub const {} = {};\n",
+                        .{ interrupt.name.toSliceConst(), interrupt.value.? },
+                    );
+                }
+            }
+        }
+        try output(context, "};");
+        return;
+    }
 };
 
 pub const Cpu = struct {
