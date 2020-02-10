@@ -9,9 +9,9 @@ const SvdTranslationError = error{NotEnoughInfoToTranslate};
 
 /// Top Level
 pub const Device = struct {
-    name: Buffer,
-    version: Buffer,
-    description: Buffer,
+    device_name: Buffer,
+    device_version: Buffer,
+    device_description: Buffer,
     cpu: ?Cpu,
 
     /// Bus Interface Properties
@@ -19,23 +19,23 @@ pub const Device = struct {
     address_unit_bits: ?u32,
 
     /// The Maximum data bit width accessible within a single transfer
-    width: ?u32,
+    max_bit_width: ?u32,
 
     /// Start register default properties
-    size: ?u32,
-    reset_value: ?u32,
-    reset_mask: ?u32,
+    reg_default_size: ?u32,
+    reg_default_reset_value: ?u32,
+    reg_default_reset_mask: ?u32,
     peripherals: Peripherals,
 
     const Self = @This();
 
     pub fn init(allocator: *Allocator) !Self {
-        var name = try Buffer.init(allocator, "");
-        errdefer name.deinit();
-        var version = try Buffer.init(allocator, "");
-        errdefer version.deinit();
-        var description = try Buffer.init(allocator, "");
-        errdefer description.deinit();
+        var device_name = try Buffer.init(allocator, "");
+        errdefer device_name.deinit();
+        var device_version = try Buffer.init(allocator, "");
+        errdefer device_version.deinit();
+        var device_description = try Buffer.init(allocator, "");
+        errdefer device_description.deinit();
         var peripherals = Peripherals.init(allocator);
         errdefer peripherals;
 
