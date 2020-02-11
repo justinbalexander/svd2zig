@@ -5,8 +5,6 @@ const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const warn = std.debug.warn;
 
-const SvdTranslationError = error{NotEnoughInfoToTranslate};
-
 /// Top Level
 pub const Device = struct {
     device_name: Buffer,
