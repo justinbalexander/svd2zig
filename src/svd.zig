@@ -58,7 +58,7 @@ pub const Device = struct {
         self.peripherals.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
         const name = if (self.device_name.len() == 0) "unknown" else self.device_name.toSliceConst();
         const version = if (self.device_version.len() == 0) "unknown" else self.device_version.toSliceConst();
         const description = if (self.device_description.len() == 0) "unknown" else self.device_description.toSliceConst();
@@ -131,7 +131,7 @@ pub const Cpu = struct {
         self.endian.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
         try output(context, "\n");
 
         const name = if (self.name.len() == 0) "unknown" else self.revision.toSliceConst();
@@ -211,7 +211,7 @@ pub const Peripheral = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
         try output(context, "\n");
         if (!self.isValid()) {
             try output(context, "// Not enough info to print register value\n");
@@ -300,7 +300,7 @@ pub const Interrupt = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
         try output(context, "\n");
         if (!self.isValid()) {
             try output(context, "// Not enough info to print interrupt value\n");
@@ -371,7 +371,7 @@ pub const Register = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
         try output(context, "\n");
         if (!self.isValid()) {
             try output(context, "// Not enough info to print register value\n");
@@ -472,7 +472,7 @@ pub const Field = struct {
         self.description.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
         try output(context, "\n");
         if (self.name.len() == 0) {
             try output(context, "// No name to print field value\n");
@@ -556,6 +556,7 @@ test "Field print" {
 
     var output_buffer = try Buffer.init(allocator, "");
     defer output_buffer.deinit();
+    var buf_stream = &std.io.BufferOutStream.init(&output_buffer).stream;
 
     var field = try Field.init(allocator);
     defer field.deinit();
@@ -573,10 +574,10 @@ test "Field print" {
     field2.bit_offset = 3;
     field2.bit_width = 4;
 
-    try output_buffer.print("{}\n", .{field});
+    try buf_stream.print("{}\n", .{field});
     std.testing.expect(output_buffer.eql(fieldDesiredPrint));
 
-    try output_buffer.print("{}\n", .{field2});
+    try buf_stream.print("{}\n", .{field2});
     std.testing.expect(output_buffer.eql(fieldDesiredPrintx2));
 }
 
@@ -614,6 +615,7 @@ test "Register Print" {
 
     var output_buffer = try Buffer.init(allocator, "");
     defer output_buffer.deinit();
+    var buf_stream = &std.io.BufferOutStream.init(&output_buffer).stream;
 
     var register = try Register.init(allocator, 0x24000, 0, 0x20);
     defer register.deinit();
@@ -633,7 +635,7 @@ test "Register Print" {
 
     try register.fields.append(field);
 
-    try output_buffer.print("{}\n", .{register});
+    try buf_stream.print("{}\n", .{register});
     std.testing.expect(output_buffer.eql(registerDesiredPrint));
 }
 
@@ -676,6 +678,7 @@ test "Peripheral Print" {
 
     var output_buffer = try Buffer.init(allocator, "");
     defer output_buffer.deinit();
+    var buf_stream = &std.io.BufferOutStream.init(&output_buffer).stream;
 
     var peripheral = try Peripheral.init(allocator);
     defer peripheral.deinit();
@@ -703,7 +706,7 @@ test "Peripheral Print" {
 
     try peripheral.registers.append(register);
 
-    try output_buffer.print("{}\n", .{peripheral});
+    try buf_stream.print("{}\n", .{peripheral});
     std.testing.expect(output_buffer.eql(peripheralDesiredPrint));
 }
 fn bitWidthToMask(width: u32) u32 {
