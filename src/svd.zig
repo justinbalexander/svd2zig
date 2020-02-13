@@ -7,9 +7,9 @@ const warn = std.debug.warn;
 
 /// Top Level
 pub const Device = struct {
-    device_name: Buffer,
-    device_version: Buffer,
-    device_description: Buffer,
+    name: Buffer,
+    version: Buffer,
+    description: Buffer,
     cpu: ?Cpu,
 
     /// Bus Interface Properties
@@ -28,12 +28,12 @@ pub const Device = struct {
     const Self = @This();
 
     pub fn init(allocator: *Allocator) !Self {
-        var device_name = try Buffer.init(allocator, "");
-        errdefer device_name.deinit();
-        var device_version = try Buffer.init(allocator, "");
-        errdefer device_version.deinit();
-        var device_description = try Buffer.init(allocator, "");
-        errdefer device_description.deinit();
+        var name = try Buffer.init(allocator, "");
+        errdefer name.deinit();
+        var version = try Buffer.init(allocator, "");
+        errdefer version.deinit();
+        var description = try Buffer.init(allocator, "");
+        errdefer description.deinit();
         var peripherals = Peripherals.init(allocator);
         errdefer peripherals;
 
@@ -43,10 +43,10 @@ pub const Device = struct {
             .description = description,
             .cpu = null,
             .address_unit_bits = null,
-            .width = null,
-            .size = null,
-            .reset_value = null,
-            .reset_mask = null,
+            .max_bit_width = null,
+            .reg_default_size = null,
+            .reg_default_reset_value = null,
+            .reg_default_reset_mask = null,
             .peripherals = peripherals,
         };
     }
