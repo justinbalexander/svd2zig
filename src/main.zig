@@ -119,7 +119,7 @@ pub fn main() anyerror!void {
                 }
             },
             .Peripheral => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len);
+                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
                 if (ascii.eqlIgnoreCase(chunk.tag, "/peripheral")) {
                     state = .Peripherals;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
@@ -161,7 +161,7 @@ pub fn main() anyerror!void {
                 }
             },
             .AddressBlock => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len);
+                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
                 var address_block = &cur_periph.address_block.?;
                 if (ascii.eqlIgnoreCase(chunk.tag, "/addressBlock")) {
                     state = .Peripheral;
@@ -180,7 +180,7 @@ pub fn main() anyerror!void {
                 }
             },
             .Interrupt => {
-                var cur_interrupt = &dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len).interrupt.?;
+                var cur_interrupt = &dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1).interrupt.?;
 
                 if (ascii.eqlIgnoreCase(chunk.tag, "/interrupt")) {
                     state = .Peripheral;
@@ -199,7 +199,7 @@ pub fn main() anyerror!void {
                 }
             },
             .Registers => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len);
+                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
                 if (ascii.eqlIgnoreCase(chunk.tag, "/registers")) {
                     state = .Peripheral;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "register")) {
@@ -215,8 +215,8 @@ pub fn main() anyerror!void {
                 }
             },
             .Register => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len);
-                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len);
+                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
+                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len - 1);
                 if (ascii.eqlIgnoreCase(chunk.tag, "/register")) {
                     state = .Registers;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
@@ -252,8 +252,8 @@ pub fn main() anyerror!void {
                 }
             },
             .Fields => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len);
-                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len);
+                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
+                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len - 1);
                 if (ascii.eqlIgnoreCase(chunk.tag, "/fields")) {
                     state = .Register;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "field")) {
@@ -264,9 +264,9 @@ pub fn main() anyerror!void {
                 }
             },
             .Field => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len);
-                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len);
-                var cur_field = cur_reg.fields.ptrAt(cur_reg.fields.toSliceConst().len);
+                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
+                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len - 1);
+                var cur_field = cur_reg.fields.ptrAt(cur_reg.fields.toSliceConst().len - 1);
                 if (ascii.eqlIgnoreCase(chunk.tag, "/field")) {
                     state = .Fields;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
