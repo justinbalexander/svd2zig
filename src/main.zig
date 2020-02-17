@@ -317,38 +317,54 @@ const SvdParseState = enum {
     Finished,
 };
 
-const XmlChunk = struct { tag: []const u8, data: ?[]const u8 };
+const XmlChunk = struct {
+    tag: []const u8,
+    data: ?[]const u8,
+    derivedFrom: ?[]const u8,
+};
 
 fn getChunk(line: []const u8) ?XmlChunk {
-    const trimmed = mem.trim(u8, line, " \n");
-    if (trimmed.len == 0) return null;
-    if (trimmed[0] != '<') return null;
-    const ending_brace_index = mem.indexOfScalarPos(u8, trimmed, 1, '>') orelse return null;
-    var answer = XmlChunk{
-        .tag = trimmed[1..ending_brace_index],
+    var chunk = XmlChunk{
+        .tag = undefined,
         .data = null,
+        .derivedFrom = null,
     };
-    const end_of_data_index = mem.indexOfScalarPos(u8, trimmed, ending_brace_index, '<') orelse return answer;
-    answer.data = trimmed[(ending_brace_index + 1)..end_of_data_index];
-    return answer;
+    var toker = mem.tokenize(line, " =\n<>\"");
+    if (toker.next()) |tag| {
+        chunk.tag = tag;
+    } else {
+        return null;
+    }
+    if (toker.next()) |maybeData| {
+        if (ascii.eqlIgnoreCase(maybeData, "derivedFrom")) {
+            chunk.derivedFrom = toker.next();
+        } else {
+            chunk.data = maybeData;
+        }
+    }
+    return chunk;
 }
 
 test "getChunk" {
     const valid_xml = "  <name>STM32F7x7</name>  \n";
-    const expected_chunk = XmlChunk{ .tag = "name", .data = "STM32F7x7" };
+    const expected_chunk = XmlChunk{ .tag = "name", .data = "STM32F7x7", .derivedFrom = null };
 
     const chunk = getChunk(valid_xml).?;
     std.testing.expectEqualSlices(u8, chunk.tag, expected_chunk.tag);
     std.testing.expectEqualSlices(u8, chunk.data.?, expected_chunk.data.?);
 
-    const invalid_xml = "  >name>STM32F7x7</name>  \n";
-    std.testing.expectEqual(getChunk(invalid_xml), null);
-
     const no_data_xml = "  <name> \n";
-    const expected_no_data_chunk = XmlChunk{ .tag = "name", .data = null };
+    const expected_no_data_chunk = XmlChunk{ .tag = "name", .data = null, .derivedFrom = null };
     const no_data_chunk = getChunk(no_data_xml).?;
     std.testing.expectEqualSlices(u8, no_data_chunk.tag, expected_no_data_chunk.tag);
     std.testing.expectEqual(no_data_chunk.data, expected_no_data_chunk.data);
+
+    const derived = "   <peripheral derivedFrom=\"TIM10\">";
+    const expected_derived_chunk = XmlChunk{ .tag = "peripheral", .data = null, .derivedFrom = "TIM10" };
+    const derived_chunk = getChunk(derived).?;
+    std.testing.expectEqualSlices(u8, derived_chunk.tag, expected_derived_chunk.tag);
+    std.testing.expectEqualSlices(u8, derived_chunk.derivedFrom.?, expected_derived_chunk.derivedFrom.?);
+    std.testing.expectEqual(derived_chunk.data, expected_derived_chunk.data);
 }
 
 fn textToBool(data: []const u8) ?bool {
