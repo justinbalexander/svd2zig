@@ -297,7 +297,7 @@ pub fn main() anyerror!void {
         }
     }
     if (state == .Finished) {
-        return;
+        try std.io.getStdOut().outStream().stream.print("{}\n", .{dev});
     } else {
         return error.InvalidXML;
     }
