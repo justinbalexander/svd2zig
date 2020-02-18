@@ -112,10 +112,20 @@ pub fn main() anyerror!void {
                 if (ascii.eqlIgnoreCase(chunk.tag, "/peripherals")) {
                     state = .Device;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "peripheral")) {
-                    var periph = try svd.Peripheral.init(allocator);
-                    defer periph.deinit();
-                    try dev.peripherals.append(periph);
-                    state = .Peripheral;
+                    if (chunk.derivedFrom) |derivedFrom| {
+                        for (dev.peripherals.toSliceConst()) |periph_being_checked| {
+                            if (periph_being_checked.name.eql(derivedFrom)) {
+                                try dev.peripherals.append(try periph_being_checked.copy(allocator));
+                                state = .Peripheral;
+                                break;
+                            }
+                        }
+                    } else {
+                        var periph = try svd.Peripheral.init(allocator);
+                        defer periph.deinit();
+                        try dev.peripherals.append(periph);
+                        state = .Peripheral;
+                    }
                 }
             },
             .Peripheral => {

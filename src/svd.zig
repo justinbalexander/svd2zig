@@ -195,11 +195,35 @@ pub const Peripheral = struct {
         };
     }
 
+    pub fn copy(self: Self, allocator: *Allocator) !Self {
+        var the_copy = try Self.init(allocator);
+        errdefer the_copy.deinit();
+
+        try the_copy.name.append(self.name.toSliceConst());
+        try the_copy.group_name.append(self.group_name.toSliceConst());
+        try the_copy.description.append(self.description.toSliceConst());
+        the_copy.base_address = self.base_address;
+        the_copy.address_block = self.address_block;
+        if (self.interrupt) |orig_interrupt| {
+            the_copy.interrupt = try orig_interrupt.copy(allocator);
+        } else {
+            the_copy.interrupt = null;
+        }
+        for (self.registers.toSliceConst()) |self_register| {
+            try the_copy.registers.append(try self_register.copy(allocator));
+        }
+
+        return the_copy;
+    }
+
     pub fn deinit(self: *Self) void {
         self.name.deinit();
         self.group_name.deinit();
         self.description.deinit();
         self.registers.deinit();
+        if (self.interrupt) |*self_interrupt| {
+            self_interrupt.deinit();
+        }
     }
 
     pub fn isValid(self: Self) bool {
@@ -286,6 +310,16 @@ pub const Interrupt = struct {
         };
     }
 
+    pub fn copy(self: Self, allocator: *Allocator) !Self {
+        var the_copy = try Self.init(allocator);
+
+        try the_copy.name.append(self.name.toSliceConst());
+        try the_copy.description.append(self.description.toSliceConst());
+        the_copy.value = self.value;
+
+        return the_copy;
+    }
+
     pub fn deinit(self: *Self) void {
         self.name.deinit();
         self.description.deinit();
@@ -352,6 +386,21 @@ pub const Register = struct {
             .reset_value = reset_value,
             .fields = fields,
         };
+    }
+
+    pub fn copy(self: Self, allocator: *Allocator) !Self {
+        var the_copy = try Self.init(allocator, self.base_address, self.reset_value, self.size);
+
+        try the_copy.name.append(self.name.toSliceConst());
+        try the_copy.display_name.append(self.display_name.toSliceConst());
+        try the_copy.description.append(self.description.toSliceConst());
+        the_copy.address_offset = self.address_offset;
+        the_copy.access = self.access;
+        for (self.fields.toSliceConst()) |self_field| {
+            try the_copy.fields.append(try self_field.copy(allocator));
+        }
+
+        return the_copy;
     }
 
     pub fn deinit(self: *Self) void {
@@ -465,6 +514,18 @@ pub const Field = struct {
             .bit_offset = null,
             .bit_width = null,
         };
+    }
+
+    pub fn copy(self: Self, allocator: *Allocator) !Self {
+        var the_copy = try Self.init(allocator);
+
+        try the_copy.name.append(self.name.toSliceConst());
+        try the_copy.description.append(self.description.toSliceConst());
+        the_copy.bit_offset = self.bit_offset;
+        the_copy.bit_width = self.bit_width;
+        the_copy.access = self.access;
+
+        return the_copy;
     }
 
     pub fn deinit(self: *Self) void {
