@@ -443,7 +443,9 @@ pub const Register = struct {
         for (self.fields.toSliceConst()) |field| {
             if (field.bit_offset) |def_offset| {
                 if (field.bit_width) |def_width| {
-                    write_mask |= bitWidthToMask(def_width) << @truncate(u5, def_offset);
+                    if (field.access != .ReadOnly) {
+                        write_mask |= bitWidthToMask(def_width) << @truncate(u5, def_offset);
+                    }
                 }
             }
         }
@@ -462,7 +464,10 @@ pub const Register = struct {
             \\    }
             \\
         ;
-        switch (self.access) {
+
+        var effective_access = if (write_mask == 0) .ReadOnly else self.access;
+
+        switch (effective_access) {
             .ReadWrite => {
                 try std.fmt.format(context, Errors, output, write_str, .{write_mask});
                 try output(context, read_str);
@@ -692,7 +697,7 @@ test "Register Print" {
     try field.description.append("rngen comment");
     field.bit_offset = 2;
     field.bit_width = 1;
-    field.access = .ReadOnly; // effects register write fn, TODO: handle WriteOnly
+    field.access = .ReadWrite; // write field will exist
 
     try register.fields.append(field);
 
@@ -713,11 +718,6 @@ test "Peripheral Print" {
         \\    pub const address = 0x24000 + 0x100;
         \\    pub const size_type = u32;
         \\    pub const reset_value: size_type = 0x0;
-        \\    const write_mask = 0x4;
-        \\    pub fn write(setting: size_type) void {
-        \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-        \\        mmio.ptr.* = setting & write_mask;
-        \\    }
         \\    pub fn read() size_type {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
         \\        return mmio.ptr.*;
@@ -761,7 +761,7 @@ test "Peripheral Print" {
     try field.description.append("rngen comment");
     field.bit_offset = 2;
     field.bit_width = 1;
-    field.access = .ReadOnly;
+    field.access = .ReadOnly; // since only register, write field will not exist
 
     try register.fields.append(field);
 
