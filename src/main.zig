@@ -36,15 +36,15 @@ pub fn main() anyerror!void {
                     state = .Finished;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try dev.name.append(data);
+                        try dev.name.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "version")) {
                     if (chunk.data) |data| {
-                        try dev.version.append(data);
+                        try dev.version.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try dev.description.append(data);
+                        try dev.description.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "cpu")) {
                     var cpu = try svd.Cpu.init(allocator);
@@ -80,15 +80,15 @@ pub fn main() anyerror!void {
                     state = .Device;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try dev.cpu.?.name.append(data);
+                        try dev.cpu.?.name.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "revision")) {
                     if (chunk.data) |data| {
-                        try dev.cpu.?.revision.append(data);
+                        try dev.cpu.?.revision.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "endian")) {
                     if (chunk.data) |data| {
-                        try dev.cpu.?.endian.append(data);
+                        try dev.cpu.?.endian.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "mpuPresent")) {
                     if (chunk.data) |data| {
@@ -124,15 +124,15 @@ pub fn main() anyerror!void {
                     state = .Peripherals;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try cur_periph.name.append(data);
+                        try cur_periph.name.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try cur_periph.description.append(data);
+                        try cur_periph.description.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "groupName")) {
                     if (chunk.data) |data| {
-                        try cur_periph.group_name.append(data);
+                        try cur_periph.group_name.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "baseAddress")) {
                     if (chunk.data) |data| {
@@ -175,7 +175,7 @@ pub fn main() anyerror!void {
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "usage")) {
                     if (chunk.data) |data| {
-                        try address_block.usage.append(data);
+                        try address_block.usage.replaceContents(data);
                     }
                 }
             },
@@ -186,11 +186,11 @@ pub fn main() anyerror!void {
                     state = .Peripheral;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try cur_interrupt.name.append(data);
+                        try cur_interrupt.name.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try cur_interrupt.description.append(data);
+                        try cur_interrupt.description.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "value")) {
                     if (chunk.data) |data| {
@@ -221,15 +221,15 @@ pub fn main() anyerror!void {
                     state = .Registers;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try cur_reg.name.append(data);
+                        try cur_reg.name.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "displayName")) {
                     if (chunk.data) |data| {
-                        try cur_reg.display_name.append(data);
+                        try cur_reg.display_name.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try cur_reg.description.append(data);
+                        try cur_reg.description.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "addressOffset")) {
                     if (chunk.data) |data| {
@@ -271,11 +271,11 @@ pub fn main() anyerror!void {
                     state = .Fields;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try cur_field.name.append(data);
+                        try cur_field.name.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try cur_field.description.append(data);
+                        try cur_field.description.replaceContents(data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "bitOffset")) {
                     if (chunk.data) |data| {
