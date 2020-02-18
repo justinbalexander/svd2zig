@@ -134,7 +134,7 @@ pub const Cpu = struct {
     pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
         try output(context, "\n");
 
-        const name = if (self.name.len() == 0) "unknown" else self.revision.toSliceConst();
+        const name = if (self.name.len() == 0) "unknown" else self.name.toSliceConst();
         const revision = if (self.revision.len() == 0) "unknown" else self.revision.toSliceConst();
         const endian = if (self.endian.len() == 0) "unknown" else self.endian.toSliceConst();
         const mpu_present = self.mpu_present orelse false;
