@@ -439,11 +439,11 @@ pub const Register = struct {
             \\    pub const reset_value: size_type = 0x{x};
             \\
         , .{ self.base_address, self.address_offset.?, self.size, self.reset_value });
-        var write_mask: u32 = std.math.maxInt(u32);
+        var write_mask: u32 = 0;
         for (self.fields.toSliceConst()) |field| {
             if (field.bit_offset) |def_offset| {
                 if (field.bit_width) |def_width| {
-                    write_mask &= ~(bitWidthToMask(def_width) << @truncate(u5, def_offset));
+                    write_mask |= bitWidthToMask(def_width) << @truncate(u5, def_offset);
                 }
             }
         }
@@ -651,7 +651,7 @@ test "Register Print" {
         \\    pub const address = 0x24000 + 0x100;
         \\    pub const size_type = u32;
         \\    pub const reset_value: size_type = 0x0;
-        \\    const write_mask = 0xfffffffb;
+        \\    const write_mask = 0x4;
         \\    pub fn write(setting: size_type) void {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
         \\        mmio.ptr.* = setting & write_mask;
@@ -713,7 +713,7 @@ test "Peripheral Print" {
         \\    pub const address = 0x24000 + 0x100;
         \\    pub const size_type = u32;
         \\    pub const reset_value: size_type = 0x0;
-        \\    const write_mask = 0xfffffffb;
+        \\    const write_mask = 0x4;
         \\    pub fn write(setting: size_type) void {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
         \\        mmio.ptr.* = setting & write_mask;
