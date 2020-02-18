@@ -339,19 +339,26 @@ fn getChunk(line: []const u8) ?XmlChunk {
         .data = null,
         .derivedFrom = null,
     };
-    var toker = mem.tokenize(line, " =\n<>\"");
-    if (toker.next()) |tag| {
-        chunk.tag = tag;
+
+    var trimmed = mem.trim(u8, line, " \n");
+    var toker = mem.tokenize(trimmed, "<>"); //" =\n<>\"");
+
+    if (toker.next()) |maybe_tag| {
+        var tag_toker = mem.tokenize(maybe_tag, " =\"");
+        chunk.tag = tag_toker.next() orelse return null;
+        if (tag_toker.next()) |maybe_tag_property| {
+            if (ascii.eqlIgnoreCase(maybe_tag_property, "derivedFrom")) {
+                chunk.derivedFrom = tag_toker.next();
+            }
+        }
     } else {
         return null;
     }
-    if (toker.next()) |maybeData| {
-        if (ascii.eqlIgnoreCase(maybeData, "derivedFrom")) {
-            chunk.derivedFrom = toker.next();
-        } else {
-            chunk.data = maybeData;
-        }
+
+    if (toker.next()) |chunk_data| {
+        chunk.data = chunk_data;
     }
+
     return chunk;
 }
 
@@ -368,6 +375,12 @@ test "getChunk" {
     const no_data_chunk = getChunk(no_data_xml).?;
     std.testing.expectEqualSlices(u8, no_data_chunk.tag, expected_no_data_chunk.tag);
     std.testing.expectEqual(no_data_chunk.data, expected_no_data_chunk.data);
+
+    const comments_xml = "<description>Auxiliary Cache Control register</description>";
+    const expected_comments_chunk = XmlChunk{ .tag = "description", .data = "Auxiliary Cache Control register", .derivedFrom = null };
+    const comments_chunk = getChunk(comments_xml).?;
+    std.testing.expectEqualSlices(u8, comments_chunk.tag, expected_comments_chunk.tag);
+    std.testing.expectEqualSlices(u8, comments_chunk.data.?, expected_comments_chunk.data.?);
 
     const derived = "   <peripheral derivedFrom=\"TIM10\">";
     const expected_derived_chunk = XmlChunk{ .tag = "peripheral", .data = null, .derivedFrom = "TIM10" };
