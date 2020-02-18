@@ -76,7 +76,7 @@ pub const Device = struct {
             try std.fmt.format(context, Errors, output, "{}\n", .{peripheral});
         }
         // now print interrupt table
-        try output(context, "pub const interrupts = {\n");
+        try output(context, "pub const interrupts = struct {\n");
         for (self.peripherals.toSliceConst()) |peripheral| {
             if (peripheral.interrupt) |interrupt| {
                 if (interrupt.isValid()) {
