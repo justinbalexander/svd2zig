@@ -451,14 +451,14 @@ pub const Register = struct {
         }
         const write_str =
             \\    const write_mask = 0x{x};
-            \\    pub fn write(setting: size_type) void {{
+            \\    pub inline fn write(setting: size_type) void {{
             \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
             \\        mmio_ptr.* = setting & write_mask;
             \\    }}
             \\
         ;
         const read_str =
-            \\    pub fn read() size_type {
+            \\    pub inline fn read() size_type {
             \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
             \\        return mmio_ptr.*;
             \\    }
@@ -568,7 +568,7 @@ pub const Field = struct {
                 const base_mask = bitWidthToMask(width);
                 try std.fmt.format(context, Errors, output,
                     \\    pub const mask = 0x{x} << offset;
-                    \\    pub fn val(setting: u32) u32 {{
+                    \\    pub inline fn val(setting: u32) u32 {{
                     \\        return (setting & 0x{x}) << offset;
                     \\    }}
                     \\
@@ -589,7 +589,7 @@ test "Field print" {
         \\    pub const offset = 2;
         \\    pub const width = 1;
         \\    pub const mask = 0x1 << offset;
-        \\    pub fn val(setting: u32) u32 {
+        \\    pub inline fn val(setting: u32) u32 {
         \\        return (setting & 0x1) << offset;
         \\    }
         \\};
@@ -603,7 +603,7 @@ test "Field print" {
         \\    pub const offset = 2;
         \\    pub const width = 1;
         \\    pub const mask = 0x1 << offset;
-        \\    pub fn val(setting: u32) u32 {
+        \\    pub inline fn val(setting: u32) u32 {
         \\        return (setting & 0x1) << offset;
         \\    }
         \\};
@@ -613,7 +613,7 @@ test "Field print" {
         \\    pub const offset = 3;
         \\    pub const width = 4;
         \\    pub const mask = 0xf << offset;
-        \\    pub fn val(setting: u32) u32 {
+        \\    pub inline fn val(setting: u32) u32 {
         \\        return (setting & 0xf) << offset;
         \\    }
         \\};
@@ -657,11 +657,11 @@ test "Register Print" {
         \\    pub const size_type = u32;
         \\    pub const reset_value: size_type = 0x0;
         \\    const write_mask = 0x4;
-        \\    pub fn write(setting: size_type) void {
+        \\    pub inline fn write(setting: size_type) void {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
         \\        mmio_ptr.* = setting & write_mask;
         \\    }
-        \\    pub fn read() size_type {
+        \\    pub inline fn read() size_type {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
         \\        return mmio_ptr.*;
         \\    }
@@ -671,7 +671,7 @@ test "Register Print" {
         \\    pub const offset = 2;
         \\    pub const width = 1;
         \\    pub const mask = 0x1 << offset;
-        \\    pub fn val(setting: u32) u32 {
+        \\    pub inline fn val(setting: u32) u32 {
         \\        return (setting & 0x1) << offset;
         \\    }
         \\};
@@ -718,7 +718,7 @@ test "Peripheral Print" {
         \\    pub const address = 0x24000 + 0x100;
         \\    pub const size_type = u32;
         \\    pub const reset_value: size_type = 0x0;
-        \\    pub fn read() size_type {
+        \\    pub inline fn read() size_type {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
         \\        return mmio_ptr.*;
         \\    }
@@ -728,7 +728,7 @@ test "Peripheral Print" {
         \\    pub const offset = 2;
         \\    pub const width = 1;
         \\    pub const mask = 0x1 << offset;
-        \\    pub fn val(setting: u32) u32 {
+        \\    pub inline fn val(setting: u32) u32 {
         \\        return (setting & 0x1) << offset;
         \\    }
         \\};
