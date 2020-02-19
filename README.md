@@ -1,5 +1,18 @@
 # Svd2Zig
 
+Generate
+[Zig](https://ziglang.org/)
+header files from
+[CMSIS-SVD](http://www.keil.com/pack/doc/CMSIS/SVD/html/index.html)
+files for accessing MMIO registers.
+
+The entire specification is not coompletely supported yet. The header file that
+was needed and prompted this repository was for the STM32F767ZG, which is
+entirely translatable into Zig.
+
+Feel free to send pull requests to flesh out the parts of the specification that
+are missing for your project.
+
 ## Build:
 
 ```
