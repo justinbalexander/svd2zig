@@ -453,14 +453,14 @@ pub const Register = struct {
             \\    const write_mask = 0x{x};
             \\    pub fn write(setting: size_type) void {{
             \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-            \\        mmio.ptr.* = setting & write_mask;
+            \\        mmio_ptr.* = setting & write_mask;
             \\    }}
             \\
         ;
         const read_str =
             \\    pub fn read() size_type {
             \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-            \\        return mmio.ptr.*;
+            \\        return mmio_ptr.*;
             \\    }
             \\
         ;
@@ -659,11 +659,11 @@ test "Register Print" {
         \\    const write_mask = 0x4;
         \\    pub fn write(setting: size_type) void {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-        \\        mmio.ptr.* = setting & write_mask;
+        \\        mmio_ptr.* = setting & write_mask;
         \\    }
         \\    pub fn read() size_type {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-        \\        return mmio.ptr.*;
+        \\        return mmio_ptr.*;
         \\    }
         \\
         \\/// rngen comment
@@ -720,7 +720,7 @@ test "Peripheral Print" {
         \\    pub const reset_value: size_type = 0x0;
         \\    pub fn read() size_type {
         \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-        \\        return mmio.ptr.*;
+        \\        return mmio_ptr.*;
         \\    }
         \\
         \\/// rngen comment
