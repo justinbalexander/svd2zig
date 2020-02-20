@@ -24,6 +24,7 @@ pub const Device = struct {
     reg_default_reset_value: ?u32,
     reg_default_reset_mask: ?u32,
     peripherals: Peripherals,
+    interrupts: Interrupts,
 
     const Self = @This();
 
@@ -36,6 +37,8 @@ pub const Device = struct {
         errdefer description.deinit();
         var peripherals = Peripherals.init(allocator);
         errdefer peripherals;
+        var interrupts = Interrupts.init(allocator);
+        errdefer interrupts;
 
         return Self{
             .name = name,
@@ -48,6 +51,7 @@ pub const Device = struct {
             .reg_default_reset_value = null,
             .reg_default_reset_mask = null,
             .peripherals = peripherals,
+            .interrupts = interrupts,
         };
     }
 
@@ -56,6 +60,7 @@ pub const Device = struct {
         self.version.deinit();
         self.description.deinit();
         self.peripherals.deinit();
+        self.interrupts.deinit();
     }
 
     pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
@@ -77,17 +82,15 @@ pub const Device = struct {
         }
         // now print interrupt table
         try output(context, "pub const interrupts = struct {\n");
-        for (self.peripherals.toSliceConst()) |peripheral| {
-            if (peripheral.interrupt) |interrupt| {
-                if (interrupt.isValid()) {
-                    try std.fmt.format(
-                        context,
-                        Errors,
-                        output,
-                        "pub const {} = {};\n",
-                        .{ interrupt.name.toSliceConst(), interrupt.value.? },
-                    );
-                }
+        for (self.interrupts.toSliceConst()) |interrupt| {
+            if (interrupt.value) |int_value| {
+                try std.fmt.format(
+                    context,
+                    Errors,
+                    output,
+                    "pub const {} = {};\n",
+                    .{ interrupt.name.toSliceConst(), int_value },
+                );
             }
         }
         try output(context, "};");
@@ -169,7 +172,6 @@ pub const Peripheral = struct {
     description: Buffer,
     base_address: ?u32,
     address_block: ?AddressBlock,
-    interrupt: ?Interrupt,
     registers: Registers,
 
     const Self = @This();
@@ -190,7 +192,6 @@ pub const Peripheral = struct {
             .description = description,
             .base_address = null,
             .address_block = null,
-            .interrupt = null,
             .registers = registers,
         };
     }
@@ -204,11 +205,6 @@ pub const Peripheral = struct {
         try the_copy.description.append(self.description.toSliceConst());
         the_copy.base_address = self.base_address;
         the_copy.address_block = self.address_block;
-        if (self.interrupt) |orig_interrupt| {
-            the_copy.interrupt = try orig_interrupt.copy(allocator);
-        } else {
-            the_copy.interrupt = null;
-        }
         for (self.registers.toSliceConst()) |self_register| {
             try the_copy.registers.append(try self_register.copy(allocator));
         }
@@ -221,9 +217,6 @@ pub const Peripheral = struct {
         self.group_name.deinit();
         self.description.deinit();
         self.registers.deinit();
-        if (self.interrupt) |*self_interrupt| {
-            self_interrupt.deinit();
-        }
     }
 
     pub fn isValid(self: Self) bool {
@@ -249,14 +242,6 @@ pub const Peripheral = struct {
             \\    pub const base_address = 0x{x};
             \\
         , .{ description, name, self.base_address.? });
-        if (self.interrupt) |interrupt_info| {
-            if (interrupt_info.value) |interrupt_num| {
-                try std.fmt.format(context, Errors, output,
-                    \\    pub const interrupt = {};
-                    \\
-                , .{interrupt_num});
-            }
-        }
         // now print registers
         for (self.registers.toSliceConst()) |register| {
             try std.fmt.format(context, Errors, output, "{}\n", .{register});
@@ -289,6 +274,8 @@ pub const AddressBlock = struct {
         self.usage.deinit();
     }
 };
+
+pub const Interrupts = ArrayList(Interrupt);
 
 pub const Interrupt = struct {
     name: Buffer,

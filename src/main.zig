@@ -158,13 +158,9 @@ pub fn main() anyerror!void {
                     }
                     state = .AddressBlock;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "interrupt")) {
-                    if (cur_periph.interrupt) |x| {
-                        // do nothing
-                    } else {
-                        var interrupt = try svd.Interrupt.init(allocator);
-                        defer interrupt.deinit();
-                        cur_periph.interrupt = interrupt;
-                    }
+                    var interrupt = try svd.Interrupt.init(allocator);
+                    defer interrupt.deinit();
+                    try dev.interrupts.append(interrupt);
                     state = .Interrupt;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "registers")) {
                     state = .Registers;
@@ -190,7 +186,8 @@ pub fn main() anyerror!void {
                 }
             },
             .Interrupt => {
-                var cur_interrupt = &dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1).interrupt.?;
+                const int_slice = dev.interrupts.toSlice();
+                var cur_interrupt = &int_slice[int_slice.len - 1];
 
                 if (ascii.eqlIgnoreCase(chunk.tag, "/interrupt")) {
                     state = .Peripheral;
