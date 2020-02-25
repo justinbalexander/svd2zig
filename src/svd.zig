@@ -238,8 +238,7 @@ pub const Peripheral = struct {
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
         try std.fmt.format(context, Errors, output,
             \\/// {}
-            \\pub const {} = struct {{
-            \\    pub const base_address = 0x{x};
+            \\pub const {}_BASE_ADDRESS = 0x{x};
             \\
         , .{ description, name, self.base_address.? });
         // now print registers
@@ -247,7 +246,6 @@ pub const Peripheral = struct {
             try std.fmt.format(context, Errors, output, "{}\n", .{register});
         }
 
-        try output(context, "};");
         return;
     }
 };
@@ -340,6 +338,7 @@ pub const Interrupt = struct {
 const Registers = ArrayList(Register);
 
 pub const Register = struct {
+    periph_containing: Buffer,
     name: Buffer,
     display_name: Buffer,
     description: Buffer,
@@ -353,7 +352,9 @@ pub const Register = struct {
 
     const Self = @This();
 
-    pub fn init(allocator: *Allocator, base_address: u32, reset_value: u32, size: u32) !Self {
+    pub fn init(allocator: *Allocator, periph: []const u8, base_address: u32, reset_value: u32, size: u32) !Self {
+        var prefix = try Buffer.init(allocator, "");
+        errdefer prefix.deinit();
         var name = try Buffer.init(allocator, "");
         errdefer name.deinit();
         var display_name = try Buffer.init(allocator, "");
@@ -363,7 +364,10 @@ pub const Register = struct {
         var fields = Fields.init(allocator);
         errdefer fields.deinit();
 
+        try prefix.replaceContents(periph);
+
         return Self{
+            .periph_containing = prefix,
             .name = name,
             .display_name = display_name,
             .description = description,
@@ -376,7 +380,7 @@ pub const Register = struct {
     }
 
     pub fn copy(self: Self, allocator: *Allocator) !Self {
-        var the_copy = try Self.init(allocator, self.base_address, self.reset_value, self.size);
+        var the_copy = try Self.init(allocator, self.periph_containing.toSliceConst(), self.base_address, self.reset_value, self.size);
 
         try the_copy.name.append(self.name.toSliceConst());
         try the_copy.display_name.append(self.display_name.toSliceConst());
@@ -391,6 +395,7 @@ pub const Register = struct {
     }
 
     pub fn deinit(self: *Self) void {
+        self.periph_containing.deinit();
         self.name.deinit();
         self.display_name.deinit();
         self.description.deinit();
@@ -413,19 +418,28 @@ pub const Register = struct {
             try output(context, "// Not enough info to print register value\n");
             return;
         }
-        const name = self.name.toSlice();
+        const name = self.name.toSliceConst();
+        const periph = self.periph_containing.toSliceConst();
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
         try std.fmt.format(context, Errors, output,
             \\/// {}
-            \\pub const {} = struct {{
             \\
-        , .{ description, name });
+        , .{description});
         try std.fmt.format(context, Errors, output,
-            \\    pub const address = 0x{x} + 0x{x};
-            \\    pub const size_type = u{};
-            \\    pub const reset_value: size_type = 0x{x};
+            \\pub const {}_{}_ADDRESS = 0x{x} + 0x{x};
+            \\pub const {}_{}_RESET_VALUE = 0x{x};
             \\
-        , .{ self.base_address, self.address_offset.?, self.size, self.reset_value });
+        , .{
+            // address
+            periph,
+            name,
+            self.base_address,
+            self.address_offset.?,
+            // reset value
+            periph,
+            name,
+            self.reset_value,
+        });
         var write_mask: u32 = 0;
         for (self.fields.toSliceConst()) |field| {
             if (field.bit_offset) |def_offset| {
@@ -437,18 +451,18 @@ pub const Register = struct {
             }
         }
         const write_str =
+            \\pub inline fn {}_{}_Write(setting: u{}) void {{
             \\    const write_mask = 0x{x};
-            \\    pub inline fn write(setting: size_type) void {{
-            \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-            \\        mmio_ptr.* = setting & write_mask;
-            \\    }}
+            \\    const mmio_ptr = @intToPtr(*volatile u{}, {}_{}_ADDRESS);
+            \\    mmio_ptr.* = setting & write_mask;
+            \\}}
             \\
         ;
         const read_str =
-            \\    pub inline fn read() size_type {
-            \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-            \\        return mmio_ptr.*;
-            \\    }
+            \\pub inline fn {}_{}_Read() u{} {{
+            \\    const mmio_ptr = @intToPtr(*volatile u{}, {}_{}_ADDRESS);
+            \\    return mmio_ptr.*;
+            \\}}
             \\
         ;
 
@@ -456,14 +470,54 @@ pub const Register = struct {
 
         switch (effective_access) {
             .ReadWrite => {
-                try std.fmt.format(context, Errors, output, write_str, .{write_mask});
-                try output(context, read_str);
+                try std.fmt.format(context, Errors, output, write_str, .{
+                    // func name
+                    periph,
+                    name,
+                    self.size,
+                    // write mask
+                    write_mask,
+                    // pointer type and address
+                    self.size,
+                    periph,
+                    name,
+                });
+                try std.fmt.format(context, Errors, output, read_str, .{
+                    // func name and return type
+                    periph,
+                    name,
+                    self.size,
+                    // pointer type and address
+                    self.size,
+                    periph,
+                    name,
+                });
             },
             .WriteOnly => {
-                try std.fmt.format(context, Errors, output, write_str, .{write_mask});
+                try std.fmt.format(context, Errors, output, write_str, .{
+                    // func name
+                    periph,
+                    name,
+                    self.size,
+                    // write mask
+                    write_mask,
+                    // pointer type and address
+                    self.size,
+                    periph,
+                    name,
+                });
             },
             .ReadOnly => {
-                try output(context, read_str);
+                try std.fmt.format(context, Errors, output, read_str, .{
+                    // func name and return type
+                    periph,
+                    name,
+                    self.size,
+                    // pointer type and address
+                    self.size,
+                    periph,
+                    name,
+                });
             },
         }
         // now print fields
@@ -471,7 +525,6 @@ pub const Register = struct {
             try std.fmt.format(context, Errors, output, "{}\n", .{field});
         }
 
-        try output(context, "};");
         return;
     }
 };
@@ -485,6 +538,8 @@ pub const Access = enum {
 pub const Fields = ArrayList(Field);
 
 pub const Field = struct {
+    periph: Buffer,
+    register: Buffer,
     name: Buffer,
     description: Buffer,
     bit_offset: ?u32,
@@ -494,13 +549,19 @@ pub const Field = struct {
 
     const Self = @This();
 
-    pub fn init(allocator: *Allocator) !Self {
+    pub fn init(allocator: *Allocator, periph_containing: []const u8, register_containing: []const u8) !Self {
+        var periph = try Buffer.init(allocator, periph_containing);
+        errdefer periph.deinit();
+        var register = try Buffer.init(allocator, register_containing);
+        errdefer register.deinit();
         var name = try Buffer.init(allocator, "");
         errdefer name.deinit();
         var description = try Buffer.init(allocator, "");
         errdefer description.deinit();
 
         return Self{
+            .periph = periph,
+            .register = register,
             .name = name,
             .description = description,
             .bit_offset = null,
@@ -509,7 +570,7 @@ pub const Field = struct {
     }
 
     pub fn copy(self: Self, allocator: *Allocator) !Self {
-        var the_copy = try Self.init(allocator);
+        var the_copy = try Self.init(allocator, self.periph.toSliceConst(), self.register.toSliceConst());
 
         try the_copy.name.append(self.name.toSliceConst());
         try the_copy.description.append(self.description.toSliceConst());
@@ -521,6 +582,8 @@ pub const Field = struct {
     }
 
     pub fn deinit(self: *Self) void {
+        self.periph.deinit();
+        self.register.deinit();
         self.name.deinit();
         self.description.deinit();
     }
@@ -531,38 +594,49 @@ pub const Field = struct {
             try output(context, "// No name to print field value\n");
             return;
         }
-        var offset_exists: bool = false;
+        if ((self.bit_offset == null) or (self.bit_width == null)) {
+            try output(context, "// Not enough info to print field\n");
+            return;
+        }
         const name = self.name.toSlice();
+        const periph = self.periph.toSliceConst();
+        const register = self.register.toSliceConst();
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        const offset = self.bit_offset.?;
+        const base_mask = bitWidthToMask(self.bit_width.?);
         try std.fmt.format(context, Errors, output,
             \\/// {}
-            \\pub const {} = struct {{
+            \\pub const {}_{}_{}_OFFSET = {};
+            \\pub const {}_{}_{}_MASK = 0x{x} << {}_{}_{}_OFFSET;
+            \\pub inline fn {}_{}_{}(setting: u32) u32 {{
+            \\    return (setting & 0x{x}) << {}_{}_{}_OFFSET;
+            \\}}
             \\
-        , .{ description, name });
-        if (self.bit_offset) |offset| {
-            try std.fmt.format(context, Errors, output,
-                \\    pub const offset = {};
-                \\
-            , .{offset});
-            offset_exists = true;
-        }
-        if (self.bit_width) |width| {
-            try std.fmt.format(context, Errors, output,
-                \\    pub const width = {};
-                \\
-            , .{width});
-            if (offset_exists) {
-                const base_mask = bitWidthToMask(width);
-                try std.fmt.format(context, Errors, output,
-                    \\    pub const mask = 0x{x} << offset;
-                    \\    pub inline fn val(setting: u32) u32 {{
-                    \\        return (setting & 0x{x}) << offset;
-                    \\    }}
-                    \\
-                , .{ base_mask, base_mask });
-            }
-        }
-        try output(context, "};");
+        , .{
+            description,
+            // offset
+            periph,
+            register,
+            name,
+            offset,
+            // mask
+            periph,
+            register,
+            name,
+            base_mask,
+            periph,
+            register,
+            name,
+            // val
+            periph,
+            register,
+            name,
+            // setting
+            base_mask,
+            periph,
+            register,
+            name,
+        });
         return;
     }
 };
@@ -571,39 +645,13 @@ test "Field print" {
     var allocator = std.testing.allocator;
     const fieldDesiredPrint =
         \\
-        \\/// rngen comment
-        \\pub const rngen = struct {
-        \\    pub const offset = 2;
-        \\    pub const width = 1;
-        \\    pub const mask = 0x1 << offset;
-        \\    pub inline fn val(setting: u32) u32 {
-        \\        return (setting & 0x1) << offset;
-        \\    }
-        \\};
+        \\/// RNGEN comment
+        \\pub const PERIPH_RND_RNGEN_OFFSET = 2;
+        \\pub const PERIPH_RND_RNGEN_MASK = 0x1 << PERIPH_RND_RNGEN_OFFSET;
+        \\pub inline fn PERIPH_RND_RNGEN(setting: u32) u32 {
+        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_OFFSET;
+        \\}
         \\
-    ;
-
-    const fieldDesiredPrintx2 =
-        \\
-        \\/// rngen comment
-        \\pub const rngen = struct {
-        \\    pub const offset = 2;
-        \\    pub const width = 1;
-        \\    pub const mask = 0x1 << offset;
-        \\    pub inline fn val(setting: u32) u32 {
-        \\        return (setting & 0x1) << offset;
-        \\    }
-        \\};
-        \\
-        \\/// doc comment
-        \\pub const field_namespace = struct {
-        \\    pub const offset = 3;
-        \\    pub const width = 4;
-        \\    pub const mask = 0xf << offset;
-        \\    pub inline fn val(setting: u32) u32 {
-        \\        return (setting & 0xf) << offset;
-        \\    }
-        \\};
         \\
     ;
 
@@ -611,58 +659,43 @@ test "Field print" {
     defer output_buffer.deinit();
     var buf_stream = &std.io.BufferOutStream.init(&output_buffer).stream;
 
-    var field = try Field.init(allocator);
+    var field = try Field.init(allocator, "PERIPH", "RND");
     defer field.deinit();
 
-    var field2 = try Field.init(allocator);
-    defer field2.deinit();
-
-    try field.name.append("rngen");
-    try field.description.append("rngen comment");
+    try field.name.append("RNGEN");
+    try field.description.append("RNGEN comment");
     field.bit_offset = 2;
     field.bit_width = 1;
 
-    try field2.name.append("field_namespace");
-    try field2.description.append("doc comment");
-    field2.bit_offset = 3;
-    field2.bit_width = 4;
-
     try buf_stream.print("{}\n", .{field});
     std.testing.expect(output_buffer.eql(fieldDesiredPrint));
-
-    try buf_stream.print("{}\n", .{field2});
-    std.testing.expect(output_buffer.eql(fieldDesiredPrintx2));
 }
 
 test "Register Print" {
     var allocator = std.testing.allocator;
     const registerDesiredPrint =
         \\
-        \\/// register comment
-        \\pub const reg_name = struct {
-        \\    pub const address = 0x24000 + 0x100;
-        \\    pub const size_type = u32;
-        \\    pub const reset_value: size_type = 0x0;
+        \\/// RND comment
+        \\pub const PERIPH_RND_ADDRESS = 0x24000 + 0x100;
+        \\pub const PERIPH_RND_RESET_VALUE = 0x0;
+        \\pub inline fn PERIPH_RND_Write(setting: u32) void {
         \\    const write_mask = 0x4;
-        \\    pub inline fn write(setting: size_type) void {
-        \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-        \\        mmio_ptr.* = setting & write_mask;
-        \\    }
-        \\    pub inline fn read() size_type {
-        \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-        \\        return mmio_ptr.*;
-        \\    }
+        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_ADDRESS);
+        \\    mmio_ptr.* = setting & write_mask;
+        \\}
+        \\pub inline fn PERIPH_RND_Read() u32 {
+        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_ADDRESS);
+        \\    return mmio_ptr.*;
+        \\}
         \\
-        \\/// rngen comment
-        \\pub const rngen = struct {
-        \\    pub const offset = 2;
-        \\    pub const width = 1;
-        \\    pub const mask = 0x1 << offset;
-        \\    pub inline fn val(setting: u32) u32 {
-        \\        return (setting & 0x1) << offset;
-        \\    }
-        \\};
-        \\};
+        \\/// RNGEN comment
+        \\pub const PERIPH_RND_RNGEN_OFFSET = 2;
+        \\pub const PERIPH_RND_RNGEN_MASK = 0x1 << PERIPH_RND_RNGEN_OFFSET;
+        \\pub inline fn PERIPH_RND_RNGEN(setting: u32) u32 {
+        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_OFFSET;
+        \\}
+        \\
+        \\
         \\
     ;
 
@@ -670,18 +703,18 @@ test "Register Print" {
     defer output_buffer.deinit();
     var buf_stream = &std.io.BufferOutStream.init(&output_buffer).stream;
 
-    var register = try Register.init(allocator, 0x24000, 0, 0x20);
+    var register = try Register.init(allocator, "PERIPH", 0x24000, 0, 0x20);
     defer register.deinit();
-    try register.name.append("reg_name");
-    try register.description.append("register comment");
+    try register.name.append("RND");
+    try register.description.append("RND comment");
     register.address_offset = 0x100;
     register.size = 0x20;
 
-    var field = try Field.init(allocator);
+    var field = try Field.init(allocator, "PERIPH", "RND");
     defer field.deinit();
 
-    try field.name.append("rngen");
-    try field.description.append("rngen comment");
+    try field.name.append("RNGEN");
+    try field.description.append("RNGEN comment");
     field.bit_offset = 2;
     field.bit_width = 1;
     field.access = .ReadWrite; // write field will exist
@@ -689,38 +722,34 @@ test "Register Print" {
     try register.fields.append(field);
 
     try buf_stream.print("{}\n", .{register});
-    std.testing.expect(output_buffer.eql(registerDesiredPrint));
+    var expected = output_buffer.toSlice();
+    std.testing.expectEqualSlices(u8, expected, registerDesiredPrint);
 }
 
 test "Peripheral Print" {
     var allocator = std.testing.allocator;
     const peripheralDesiredPrint =
         \\
-        \\/// per comment
-        \\pub const per_name = struct {
-        \\    pub const base_address = 0x24000;
+        \\/// PERIPH comment
+        \\pub const PERIPH_BASE_ADDRESS = 0x24000;
         \\
-        \\/// register comment
-        \\pub const reg_name = struct {
-        \\    pub const address = 0x24000 + 0x100;
-        \\    pub const size_type = u32;
-        \\    pub const reset_value: size_type = 0x0;
-        \\    pub inline fn read() size_type {
-        \\        const mmio_ptr = @intToPtr(*volatile size_type, address);
-        \\        return mmio_ptr.*;
-        \\    }
+        \\/// RND comment
+        \\pub const PERIPH_RND_ADDRESS = 0x24000 + 0x100;
+        \\pub const PERIPH_RND_RESET_VALUE = 0x0;
+        \\pub inline fn PERIPH_RND_Read() u32 {
+        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_ADDRESS);
+        \\    return mmio_ptr.*;
+        \\}
         \\
-        \\/// rngen comment
-        \\pub const rngen = struct {
-        \\    pub const offset = 2;
-        \\    pub const width = 1;
-        \\    pub const mask = 0x1 << offset;
-        \\    pub inline fn val(setting: u32) u32 {
-        \\        return (setting & 0x1) << offset;
-        \\    }
-        \\};
-        \\};
-        \\};
+        \\/// RNGEN comment
+        \\pub const PERIPH_RND_RNGEN_OFFSET = 2;
+        \\pub const PERIPH_RND_RNGEN_MASK = 0x1 << PERIPH_RND_RNGEN_OFFSET;
+        \\pub inline fn PERIPH_RND_RNGEN(setting: u32) u32 {
+        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_OFFSET;
+        \\}
+        \\
+        \\
+        \\
         \\
     ;
 
@@ -730,22 +759,22 @@ test "Peripheral Print" {
 
     var peripheral = try Peripheral.init(allocator);
     defer peripheral.deinit();
-    try peripheral.name.append("per_name");
-    try peripheral.description.append("per comment");
+    try peripheral.name.append("PERIPH");
+    try peripheral.description.append("PERIPH comment");
     peripheral.base_address = 0x24000;
 
-    var register = try Register.init(allocator, peripheral.base_address.?, 0, 0x20);
+    var register = try Register.init(allocator, "PERIPH", peripheral.base_address.?, 0, 0x20);
     defer register.deinit();
-    try register.name.append("reg_name");
-    try register.description.append("register comment");
+    try register.name.append("RND");
+    try register.description.append("RND comment");
     register.address_offset = 0x100;
     register.size = 0x20;
 
-    var field = try Field.init(allocator);
+    var field = try Field.init(allocator, "PERIPH", "RND");
     defer field.deinit();
 
-    try field.name.append("rngen");
-    try field.description.append("rngen comment");
+    try field.name.append("RNGEN");
+    try field.description.append("RNGEN comment");
     field.bit_offset = 2;
     field.bit_width = 1;
     field.access = .ReadOnly; // since only register, write field will not exist
@@ -755,7 +784,9 @@ test "Peripheral Print" {
     try peripheral.registers.append(register);
 
     try buf_stream.print("{}\n", .{peripheral});
-    std.testing.expect(output_buffer.eql(peripheralDesiredPrint));
+    std.debug.warn("{}\n", .{output_buffer.toSliceConst()});
+    std.debug.warn("{}\n", .{peripheralDesiredPrint});
+    std.testing.expectEqualSlices(u8, peripheralDesiredPrint, output_buffer.toSliceConst());
 }
 fn bitWidthToMask(width: u32) u32 {
     const max_supported_bits = 32;

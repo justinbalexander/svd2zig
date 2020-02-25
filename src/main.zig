@@ -134,7 +134,14 @@ pub fn main() anyerror!void {
                     state = .Peripherals;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
+                        // periph could be copy, must update periph name in sub-fields
                         try cur_periph.name.replaceContents(data);
+                        for (cur_periph.registers.toSlice()) |*reg| {
+                            try reg.periph_containing.replaceContents(data);
+                            for (reg.fields.toSlice()) |*field| {
+                                try field.periph.replaceContents(data);
+                            }
+                        }
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
@@ -215,7 +222,7 @@ pub fn main() anyerror!void {
 
                     const reset_value = dev.reg_default_reset_value orelse 0;
                     const size = dev.reg_default_size orelse 32;
-                    var register = try svd.Register.init(allocator, base_address, reset_value, size);
+                    var register = try svd.Register.init(allocator, cur_periph.name.toSliceConst(), base_address, reset_value, size);
                     defer register.deinit();
                     try cur_periph.registers.append(register);
                     state = .Register;
@@ -264,7 +271,7 @@ pub fn main() anyerror!void {
                 if (ascii.eqlIgnoreCase(chunk.tag, "/fields")) {
                     state = .Register;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "field")) {
-                    var field = try svd.Field.init(allocator);
+                    var field = try svd.Field.init(allocator, cur_periph.name.toSliceConst(), cur_reg.name.toSliceConst());
                     defer field.deinit();
                     try cur_reg.fields.append(field);
                     state = .Field;
