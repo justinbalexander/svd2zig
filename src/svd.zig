@@ -238,7 +238,7 @@ pub const Peripheral = struct {
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
         try std.fmt.format(context, Errors, output,
             \\/// {}
-            \\pub const {}_BASE_ADDRESS = 0x{x};
+            \\pub const {}_Base_Address = 0x{x};
             \\
         , .{ description, name, self.base_address.? });
         // now print registers
@@ -426,8 +426,8 @@ pub const Register = struct {
             \\
         , .{description});
         try std.fmt.format(context, Errors, output,
-            \\pub const {}_{}_ADDRESS = 0x{x} + 0x{x};
-            \\pub const {}_{}_RESET_VALUE = 0x{x};
+            \\pub const {}_{}_Address = 0x{x} + 0x{x};
+            \\pub const {}_{}_Reset_Value = 0x{x};
             \\
         , .{
             // address
@@ -453,14 +453,14 @@ pub const Register = struct {
         const write_str =
             \\pub inline fn {}_{}_Write(setting: u{}) void {{
             \\    const write_mask = 0x{x};
-            \\    const mmio_ptr = @intToPtr(*volatile u{}, {}_{}_ADDRESS);
+            \\    const mmio_ptr = @intToPtr(*volatile u{}, {}_{}_Address);
             \\    mmio_ptr.* = setting & write_mask;
             \\}}
             \\
         ;
         const read_str =
             \\pub inline fn {}_{}_Read() u{} {{
-            \\    const mmio_ptr = @intToPtr(*volatile u{}, {}_{}_ADDRESS);
+            \\    const mmio_ptr = @intToPtr(*volatile u{}, {}_{}_Address);
             \\    return mmio_ptr.*;
             \\}}
             \\
@@ -606,10 +606,10 @@ pub const Field = struct {
         const base_mask = bitWidthToMask(self.bit_width.?);
         try std.fmt.format(context, Errors, output,
             \\/// {}
-            \\pub const {}_{}_{}_OFFSET = {};
-            \\pub const {}_{}_{}_MASK = 0x{x} << {}_{}_{}_OFFSET;
+            \\pub const {}_{}_{}_Offset = {};
+            \\pub const {}_{}_{}_Mask = 0x{x} << {}_{}_{}_Offset;
             \\pub inline fn {}_{}_{}(setting: u32) u32 {{
-            \\    return (setting & 0x{x}) << {}_{}_{}_OFFSET;
+            \\    return (setting & 0x{x}) << {}_{}_{}_Offset;
             \\}}
             \\
         , .{
@@ -646,10 +646,10 @@ test "Field print" {
     const fieldDesiredPrint =
         \\
         \\/// RNGEN comment
-        \\pub const PERIPH_RND_RNGEN_OFFSET = 2;
-        \\pub const PERIPH_RND_RNGEN_MASK = 0x1 << PERIPH_RND_RNGEN_OFFSET;
+        \\pub const PERIPH_RND_RNGEN_Offset = 2;
+        \\pub const PERIPH_RND_RNGEN_Mask = 0x1 << PERIPH_RND_RNGEN_Offset;
         \\pub inline fn PERIPH_RND_RNGEN(setting: u32) u32 {
-        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_OFFSET;
+        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_Offset;
         \\}
         \\
         \\
@@ -676,23 +676,23 @@ test "Register Print" {
     const registerDesiredPrint =
         \\
         \\/// RND comment
-        \\pub const PERIPH_RND_ADDRESS = 0x24000 + 0x100;
-        \\pub const PERIPH_RND_RESET_VALUE = 0x0;
+        \\pub const PERIPH_RND_Address = 0x24000 + 0x100;
+        \\pub const PERIPH_RND_Reset_Value = 0x0;
         \\pub inline fn PERIPH_RND_Write(setting: u32) void {
         \\    const write_mask = 0x4;
-        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_ADDRESS);
+        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
         \\    mmio_ptr.* = setting & write_mask;
         \\}
         \\pub inline fn PERIPH_RND_Read() u32 {
-        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_ADDRESS);
+        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
         \\    return mmio_ptr.*;
         \\}
         \\
         \\/// RNGEN comment
-        \\pub const PERIPH_RND_RNGEN_OFFSET = 2;
-        \\pub const PERIPH_RND_RNGEN_MASK = 0x1 << PERIPH_RND_RNGEN_OFFSET;
+        \\pub const PERIPH_RND_RNGEN_Offset = 2;
+        \\pub const PERIPH_RND_RNGEN_Mask = 0x1 << PERIPH_RND_RNGEN_Offset;
         \\pub inline fn PERIPH_RND_RNGEN(setting: u32) u32 {
-        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_OFFSET;
+        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_Offset;
         \\}
         \\
         \\
@@ -731,21 +731,21 @@ test "Peripheral Print" {
     const peripheralDesiredPrint =
         \\
         \\/// PERIPH comment
-        \\pub const PERIPH_BASE_ADDRESS = 0x24000;
+        \\pub const PERIPH_Base_Address = 0x24000;
         \\
         \\/// RND comment
-        \\pub const PERIPH_RND_ADDRESS = 0x24000 + 0x100;
-        \\pub const PERIPH_RND_RESET_VALUE = 0x0;
+        \\pub const PERIPH_RND_Address = 0x24000 + 0x100;
+        \\pub const PERIPH_RND_Reset_Value = 0x0;
         \\pub inline fn PERIPH_RND_Read() u32 {
-        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_ADDRESS);
+        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
         \\    return mmio_ptr.*;
         \\}
         \\
         \\/// RNGEN comment
-        \\pub const PERIPH_RND_RNGEN_OFFSET = 2;
-        \\pub const PERIPH_RND_RNGEN_MASK = 0x1 << PERIPH_RND_RNGEN_OFFSET;
+        \\pub const PERIPH_RND_RNGEN_Offset = 2;
+        \\pub const PERIPH_RND_RNGEN_Mask = 0x1 << PERIPH_RND_RNGEN_Offset;
         \\pub inline fn PERIPH_RND_RNGEN(setting: u32) u32 {
-        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_OFFSET;
+        \\    return (setting & 0x1) << PERIPH_RND_RNGEN_Offset;
         \\}
         \\
         \\
