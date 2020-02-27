@@ -784,8 +784,6 @@ test "Peripheral Print" {
     try peripheral.registers.append(register);
 
     try buf_stream.print("{}\n", .{peripheral});
-    std.debug.warn("{}\n", .{output_buffer.toSliceConst()});
-    std.debug.warn("{}\n", .{peripheralDesiredPrint});
     std.testing.expectEqualSlices(u8, peripheralDesiredPrint, output_buffer.toSliceConst());
 }
 fn bitWidthToMask(width: u32) u32 {
