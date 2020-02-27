@@ -13,6 +13,11 @@ completely translated into Zig.
 Feel free to send pull requests to flesh out the parts of the specification that
 are missing for your project.
 
+The output is intentionally formatted in the usual C style so that simple
+text completion capabilities can be used to quickly find the correct register
+values and fields. This eliminates the need for a language server protocol
+extension, at the expense of not following the Zig style guide.
+
 ## Build:
 
 ```
@@ -34,63 +39,47 @@ https://github.com/posborne/cmsis-svd
 
 ```zig
 /// Access control
-pub const AC = struct {
-    pub const base_address = 0xe000ef90;
+pub const AC_BASE_ADDRESS = 0xe000ef90;
 
-    /// Instruction and Data Tightly-Coupled Memory           Control Registers
-    pub const ITCMCR = struct {
-        pub const address = 0xe000ef90 + 0x0;
-        pub const size_type = u32;
-        pub const reset_value: size_type = 0x0;
-        const write_mask = 0x7f;
-        pub fn write(setting: size_type) void {
-            const mmio_ptr = @intToPtr(*volatile size_type, address);
-            mmio.ptr.* = setting & write_mask;
-        }
-        pub fn read() size_type {
-            const mmio_ptr = @intToPtr(*volatile size_type, address);
-            return mmio.ptr.*;
-        }
+/// Instruction and Data Tightly-Coupled Memory           Control Registers
+pub const AC_ITCMCR_ADDRESS = 0xe000ef90 + 0x0;
+pub const AC_ITCMCR_RESET_VALUE = 0x0;
+pub inline fn AC_ITCMCR_Write(setting: u32) void {
+    const write_mask = 0x7f;
+    const mmio_ptr = @intToPtr(*volatile u32, AC_ITCMCR_ADDRESS);
+    mmio_ptr.* = setting & write_mask;
+}
+pub inline fn AC_ITCMCR_Read() u32 {
+    const mmio_ptr = @intToPtr(*volatile u32, AC_ITCMCR_ADDRESS);
+    return mmio_ptr.*;
+}
 
-        /// EN
-        pub const EN = struct {
-            pub const offset = 0;
-            pub const width = 1;
-            pub const mask = 0x1 << offset;
-            pub fn val(setting: u32) u32 {
-                return (setting & 0x1) << offset;
-            }
-        };
+/// EN
+pub const AC_ITCMCR_EN_OFFSET = 0;
+pub const AC_ITCMCR_EN_MASK = 0x1 << AC_ITCMCR_EN_OFFSET;
+pub inline fn AC_ITCMCR_EN(setting: u32) u32 {
+    return (setting & 0x1) << AC_ITCMCR_EN_OFFSET;
+}
 
-        /// RMW
-        pub const RMW = struct {
-            pub const offset = 1;
-            pub const width = 1;
-            pub const mask = 0x1 << offset;
-            pub fn val(setting: u32) u32 {
-                return (setting & 0x1) << offset;
-            }
-        };
+/// RMW
+pub const AC_ITCMCR_RMW_OFFSET = 1;
+pub const AC_ITCMCR_RMW_MASK = 0x1 << AC_ITCMCR_RMW_OFFSET;
+pub inline fn AC_ITCMCR_RMW(setting: u32) u32 {
+    return (setting & 0x1) << AC_ITCMCR_RMW_OFFSET;
+}
 
-        /// RETEN
-        pub const RETEN = struct {
-            pub const offset = 2;
-            pub const width = 1;
-            pub const mask = 0x1 << offset;
-            pub fn val(setting: u32) u32 {
-                return (setting & 0x1) << offset;
-            }
-        };
+/// RETEN
+pub const AC_ITCMCR_RETEN_OFFSET = 2;
+pub const AC_ITCMCR_RETEN_MASK = 0x1 << AC_ITCMCR_RETEN_OFFSET;
+pub inline fn AC_ITCMCR_RETEN(setting: u32) u32 {
+    return (setting & 0x1) << AC_ITCMCR_RETEN_OFFSET;
+}
 
-        /// SZ
-        pub const SZ = struct {
-            pub const offset = 3;
-            pub const width = 4;
-            pub const mask = 0xf << offset;
-            pub fn val(setting: u32) u32 {
-                return (setting & 0xf) << offset;
-            }
-        };
-    };
+/// SZ
+pub const AC_ITCMCR_SZ_OFFSET = 3;
+pub const AC_ITCMCR_SZ_MASK = 0xf << AC_ITCMCR_SZ_OFFSET;
+pub inline fn AC_ITCMCR_SZ(setting: u32) u32 {
+    return (setting & 0xf) << AC_ITCMCR_SZ_OFFSET;
+}
 ```
 
