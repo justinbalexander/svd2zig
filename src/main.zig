@@ -48,7 +48,6 @@ pub fn main() anyerror!void {
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "cpu")) {
                     var cpu = try svd.Cpu.init(allocator);
-                    defer cpu.deinit();
                     dev.cpu = cpu;
                     state = .Cpu;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "addressUnitBits")) {
@@ -122,7 +121,6 @@ pub fn main() anyerror!void {
                         }
                     } else {
                         var periph = try svd.Peripheral.init(allocator);
-                        defer periph.deinit();
                         try dev.peripherals.append(periph);
                         state = .Peripheral;
                     }
@@ -160,13 +158,11 @@ pub fn main() anyerror!void {
                         // do nothing
                     } else {
                         var block = try svd.AddressBlock.init(allocator);
-                        defer block.deinit();
                         cur_periph.address_block = block;
                     }
                     state = .AddressBlock;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "interrupt")) {
                     var interrupt = try svd.Interrupt.init(allocator);
-                    defer interrupt.deinit();
                     try dev.interrupts.append(interrupt);
                     state = .Interrupt;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "registers")) {
@@ -223,7 +219,6 @@ pub fn main() anyerror!void {
                     const reset_value = dev.reg_default_reset_value orelse 0;
                     const size = dev.reg_default_size orelse 32;
                     var register = try svd.Register.init(allocator, cur_periph.name.toSliceConst(), base_address, reset_value, size);
-                    defer register.deinit();
                     try cur_periph.registers.append(register);
                     state = .Register;
                 }
@@ -272,7 +267,6 @@ pub fn main() anyerror!void {
                     state = .Register;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "field")) {
                     var field = try svd.Field.init(allocator, cur_periph.name.toSliceConst(), cur_reg.name.toSliceConst());
-                    defer field.deinit();
                     try cur_reg.fields.append(field);
                     state = .Field;
                 }
