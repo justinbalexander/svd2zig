@@ -68,9 +68,9 @@ pub const Device = struct {
         const version = if (self.version.len() == 0) "unknown" else self.version.toSliceConst();
         const description = if (self.description.len() == 0) "unknown" else self.description.toSliceConst();
         try std.fmt.format(context, Errors, output,
-            \\pub const device_name = {};
-            \\pub const device_revision = {};
-            \\pub const device_description = {};
+            \\pub const device_name = "{}";
+            \\pub const device_revision = "{}";
+            \\pub const device_description = "{}";
             \\
         , .{ name, version, description });
         if (self.cpu) |the_cpu| {
@@ -145,9 +145,9 @@ pub const Cpu = struct {
         const vendor_systick_config = self.vendor_systick_config orelse false;
         try std.fmt.format(context, Errors, output,
             \\pub const cpu = struct {{
-            \\    pub const name = {};
-            \\    pub const revision = {};
-            \\    pub const endian = {};
+            \\    pub const name = "{}";
+            \\    pub const revision = "{}";
+            \\    pub const endian = "{}";
             \\    pub const mpu_present = {};
             \\    pub const fpu_present = {};
             \\    pub const vendor_systick_config = {};
