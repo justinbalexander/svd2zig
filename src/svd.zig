@@ -450,76 +450,22 @@ pub const Register = struct {
                 }
             }
         }
-        const write_str =
-            \\pub inline fn {}_{}_Write(setting: u{}) void {{
-            \\    const write_mask = 0x{x};
-            \\    const mmio_ptr = @intToPtr(*volatile u{}, {}_{}_Address);
-            \\    mmio_ptr.* = setting & write_mask;
-            \\}}
-            \\
-        ;
-        const read_str =
-            \\pub inline fn {}_{}_Read() u{} {{
-            \\    const mmio_ptr = @intToPtr(*volatile u{}, {}_{}_Address);
-            \\    return mmio_ptr.*;
-            \\}}
+        const ptr_str =
+            \\pub const {}_{}_Write_Mask = 0x{x};
+            \\pub const {}_{}_Ptr = @intToPtr(*volatile u{}, {}_{}_Address);
             \\
         ;
 
-        var effective_access = if (write_mask == 0) .ReadOnly else self.access;
-
-        switch (effective_access) {
-            .ReadWrite => {
-                try std.fmt.format(context, Errors, output, write_str, .{
-                    // func name
-                    periph,
-                    name,
-                    self.size,
-                    // write mask
-                    write_mask,
-                    // pointer type and address
-                    self.size,
-                    periph,
-                    name,
-                });
-                try std.fmt.format(context, Errors, output, read_str, .{
-                    // func name and return type
-                    periph,
-                    name,
-                    self.size,
-                    // pointer type and address
-                    self.size,
-                    periph,
-                    name,
-                });
-            },
-            .WriteOnly => {
-                try std.fmt.format(context, Errors, output, write_str, .{
-                    // func name
-                    periph,
-                    name,
-                    self.size,
-                    // write mask
-                    write_mask,
-                    // pointer type and address
-                    self.size,
-                    periph,
-                    name,
-                });
-            },
-            .ReadOnly => {
-                try std.fmt.format(context, Errors, output, read_str, .{
-                    // func name and return type
-                    periph,
-                    name,
-                    self.size,
-                    // pointer type and address
-                    self.size,
-                    periph,
-                    name,
-                });
-            },
-        }
+        try std.fmt.format(context, Errors, output, ptr_str, .{
+            periph,
+            name,
+            write_mask,
+            periph,
+            name,
+            self.size,
+            periph,
+            name,
+        });
         // now print fields
         for (self.fields.toSliceConst()) |field| {
             try std.fmt.format(context, Errors, output, "{}\n", .{field});
@@ -678,15 +624,8 @@ test "Register Print" {
         \\/// RND comment
         \\pub const PERIPH_RND_Address = 0x24000 + 0x100;
         \\pub const PERIPH_RND_Reset_Value = 0x0;
-        \\pub inline fn PERIPH_RND_Write(setting: u32) void {
-        \\    const write_mask = 0x4;
-        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
-        \\    mmio_ptr.* = setting & write_mask;
-        \\}
-        \\pub inline fn PERIPH_RND_Read() u32 {
-        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
-        \\    return mmio_ptr.*;
-        \\}
+        \\pub const PERIPH_RND_Write_Mask = 0x4;
+        \\pub const PERIPH_RND_Ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
         \\
         \\/// RNGEN comment
         \\pub const PERIPH_RND_RNGEN_Offset = 2;
@@ -736,10 +675,8 @@ test "Peripheral Print" {
         \\/// RND comment
         \\pub const PERIPH_RND_Address = 0x24000 + 0x100;
         \\pub const PERIPH_RND_Reset_Value = 0x0;
-        \\pub inline fn PERIPH_RND_Read() u32 {
-        \\    const mmio_ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
-        \\    return mmio_ptr.*;
-        \\}
+        \\pub const PERIPH_RND_Write_Mask = 0x0;
+        \\pub const PERIPH_RND_Ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
         \\
         \\/// RNGEN comment
         \\pub const PERIPH_RND_RNGEN_Offset = 2;
