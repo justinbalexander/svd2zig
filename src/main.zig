@@ -6,6 +6,8 @@ const warn = std.debug.warn;
 
 const svd = @import("svd.zig");
 
+var line_buffer: [1024 * 1024]u8 = undefined;
+
 pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -24,7 +26,6 @@ pub fn main() anyerror!void {
 
     var state = SvdParseState.Device;
     var dev = try svd.Device.init(allocator);
-    var line_buffer: [1024]u8 = undefined;
     while (try stream.readUntilDelimiterOrEof(&line_buffer, '\n')) |line| {
         if (line.len == 0) {
             break;
