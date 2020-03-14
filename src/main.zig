@@ -22,7 +22,7 @@ pub fn main() anyerror!void {
     const file_name = try args.next(allocator) orelse return error.MandatoryFilenameArgumentNotGiven;
     const file = try std.fs.cwd().openFile(file_name, .{ .read = true, .write = false });
 
-    const stream = &file.inStream().stream;
+    const stream = &file.inStream();
 
     var state = SvdParseState.Device;
     var dev = try svd.Device.init(allocator);
@@ -306,7 +306,7 @@ pub fn main() anyerror!void {
         }
     }
     if (state == .Finished) {
-        try std.io.getStdOut().outStream().stream.print("{}\n", .{dev});
+        try std.io.getStdOut().outStream().print("{}\n", .{dev});
     } else {
         return error.InvalidXML;
     }
