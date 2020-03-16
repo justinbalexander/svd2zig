@@ -63,37 +63,35 @@ pub const Device = struct {
         self.interrupts.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
         const name = if (self.name.len() == 0) "unknown" else self.name.toSliceConst();
         const version = if (self.version.len() == 0) "unknown" else self.version.toSliceConst();
         const description = if (self.description.len() == 0) "unknown" else self.description.toSliceConst();
-        try std.fmt.format(context, Errors, output,
+
+        try out_stream.print(
             \\pub const device_name = "{}";
             \\pub const device_revision = "{}";
             \\pub const device_description = "{}";
             \\
         , .{ name, version, description });
         if (self.cpu) |the_cpu| {
-            try std.fmt.format(context, Errors, output, "{}\n", .{the_cpu});
+            try out_stream.print("{}\n", .{the_cpu});
         }
         // now print peripherals
         for (self.peripherals.toSliceConst()) |peripheral| {
-            try std.fmt.format(context, Errors, output, "{}\n", .{peripheral});
+            try out_stream.print("{}\n", .{peripheral});
         }
         // now print interrupt table
-        try output(context, "pub const interrupts = struct {\n");
+        try out_stream.writeAll("pub const interrupts = struct {\n");
         for (self.interrupts.toSliceConst()) |interrupt| {
             if (interrupt.value) |int_value| {
-                try std.fmt.format(
-                    context,
-                    Errors,
-                    output,
+                try out_stream.print(
                     "pub const {} = {};\n",
                     .{ interrupt.name.toSliceConst(), int_value },
                 );
             }
         }
-        try output(context, "};");
+        try out_stream.writeAll("};");
         return;
     }
 };
@@ -134,8 +132,8 @@ pub const Cpu = struct {
         self.endian.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
-        try output(context, "\n");
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+        try out_stream.writeAll("\n");
 
         const name = if (self.name.len() == 0) "unknown" else self.name.toSliceConst();
         const revision = if (self.revision.len() == 0) "unknown" else self.revision.toSliceConst();
@@ -143,7 +141,7 @@ pub const Cpu = struct {
         const mpu_present = self.mpu_present orelse false;
         const fpu_present = self.mpu_present orelse false;
         const vendor_systick_config = self.vendor_systick_config orelse false;
-        try std.fmt.format(context, Errors, output,
+        try out_stream.print(
             \\pub const cpu = struct {{
             \\    pub const name = "{}";
             \\    pub const revision = "{}";
@@ -154,12 +152,12 @@ pub const Cpu = struct {
             \\
         , .{ name, revision, endian, mpu_present, fpu_present, vendor_systick_config });
         if (self.nvic_prio_bits) |prio_bits| {
-            try std.fmt.format(context, Errors, output,
+            try out_stream.print(
                 \\    pub const nvic_prio_bits = {};
                 \\
             , .{prio_bits});
         }
-        try output(context, "};");
+        try out_stream.writeAll("};");
         return;
     }
 };
@@ -228,22 +226,22 @@ pub const Peripheral = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
-        try output(context, "\n");
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+        try out_stream.writeAll("\n");
         if (!self.isValid()) {
-            try output(context, "// Not enough info to print register value\n");
+            try out_stream.writeAll("// Not enough info to print register value\n");
             return;
         }
         const name = self.name.toSlice();
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
-        try std.fmt.format(context, Errors, output,
+        try out_stream.print(
             \\/// {}
             \\pub const {}_Base_Address = 0x{x};
             \\
         , .{ description, name, self.base_address.? });
         // now print registers
         for (self.registers.toSliceConst()) |register| {
-            try std.fmt.format(context, Errors, output, "{}\n", .{register});
+            try out_stream.print("{}\n", .{register});
         }
 
         return;
@@ -319,15 +317,15 @@ pub const Interrupt = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
-        try output(context, "\n");
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+        try out_stream.writeAll("\n");
         if (!self.isValid()) {
             try output(context, "// Not enough info to print interrupt value\n");
             return;
         }
         const name = self.name.toSlice();
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
-        try std.fmt.format(context, Errors, output,
+        try out_stream.print(
             \\/// {}
             \\pub const {} = {};
             \\
@@ -412,20 +410,20 @@ pub const Register = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
-        try output(context, "\n");
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+        try out_stream.writeAll("\n");
         if (!self.isValid()) {
-            try output(context, "// Not enough info to print register value\n");
+            try out_stream.writeAll("// Not enough info to print register value\n");
             return;
         }
         const name = self.name.toSliceConst();
         const periph = self.periph_containing.toSliceConst();
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
-        try std.fmt.format(context, Errors, output,
+        try out_stream.print(
             \\/// {}
             \\
         , .{description});
-        try std.fmt.format(context, Errors, output,
+        try out_stream.print(
             \\pub const {}_{}_Address = 0x{x} + 0x{x};
             \\pub const {}_{}_Reset_Value = 0x{x};
             \\
@@ -456,7 +454,7 @@ pub const Register = struct {
             \\
         ;
 
-        try std.fmt.format(context, Errors, output, ptr_str, .{
+        try out_stream.print(ptr_str, .{
             periph,
             name,
             write_mask,
@@ -468,7 +466,7 @@ pub const Register = struct {
         });
         // now print fields
         for (self.fields.toSliceConst()) |field| {
-            try std.fmt.format(context, Errors, output, "{}\n", .{field});
+            try out_stream.print("{}\n", .{field});
         }
 
         return;
@@ -534,14 +532,14 @@ pub const Field = struct {
         self.description.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, context: var, comptime Errors: type, comptime output: fn (@TypeOf(context), []const u8) Errors!void) Errors!void {
-        try output(context, "\n");
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+        try out_stream.writeAll("\n");
         if (self.name.len() == 0) {
-            try output(context, "// No name to print field value\n");
+            try out_stream.writeAll("// No name to print field value\n");
             return;
         }
         if ((self.bit_offset == null) or (self.bit_width == null)) {
-            try output(context, "// Not enough info to print field\n");
+            try out_stream.writeAll("// Not enough info to print field\n");
             return;
         }
         const name = self.name.toSlice();
@@ -550,7 +548,7 @@ pub const Field = struct {
         const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
         const offset = self.bit_offset.?;
         const base_mask = bitWidthToMask(self.bit_width.?);
-        try std.fmt.format(context, Errors, output,
+        try out_stream.print(
             \\/// {}
             \\pub const {}_{}_{}_Offset = {};
             \\pub const {}_{}_{}_Mask = 0x{x} << {}_{}_{}_Offset;
