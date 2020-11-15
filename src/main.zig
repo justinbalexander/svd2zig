@@ -37,15 +37,15 @@ pub fn main() anyerror!void {
                     state = .Finished;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try dev.name.replaceContents(data);
+                        try dev.name.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "version")) {
                     if (chunk.data) |data| {
-                        try dev.version.replaceContents(data);
+                        try dev.version.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try dev.description.replaceContents(data);
+                        try dev.description.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "cpu")) {
                     var cpu = try svd.Cpu.init(allocator);
@@ -80,15 +80,15 @@ pub fn main() anyerror!void {
                     state = .Device;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try dev.cpu.?.name.replaceContents(data);
+                        try dev.cpu.?.name.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "revision")) {
                     if (chunk.data) |data| {
-                        try dev.cpu.?.revision.replaceContents(data);
+                        try dev.cpu.?.revision.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "endian")) {
                     if (chunk.data) |data| {
-                        try dev.cpu.?.endian.replaceContents(data);
+                        try dev.cpu.?.endian.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "mpuPresent")) {
                     if (chunk.data) |data| {
@@ -113,8 +113,8 @@ pub fn main() anyerror!void {
                     state = .Device;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "peripheral")) {
                     if (chunk.derivedFrom) |derivedFrom| {
-                        for (dev.peripherals.toSliceConst()) |periph_being_checked| {
-                            if (periph_being_checked.name.eql(derivedFrom)) {
+                        for (dev.peripherals.items) |periph_being_checked| {
+                            if (mem.eql(u8, periph_being_checked.name.items, derivedFrom)) {
                                 try dev.peripherals.append(try periph_being_checked.copy(allocator));
                                 state = .Peripheral;
                                 break;
@@ -128,27 +128,27 @@ pub fn main() anyerror!void {
                 }
             },
             .Peripheral => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
+                var cur_periph = &dev.peripherals.items[dev.peripherals.items.len - 1];
                 if (ascii.eqlIgnoreCase(chunk.tag, "/peripheral")) {
                     state = .Peripherals;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
                         // periph could be copy, must update periph name in sub-fields
-                        try cur_periph.name.replaceContents(data);
-                        for (cur_periph.registers.toSlice()) |*reg| {
-                            try reg.periph_containing.replaceContents(data);
-                            for (reg.fields.toSlice()) |*field| {
-                                try field.periph.replaceContents(data);
+                        try cur_periph.name.insertSlice(0, data);
+                        for (cur_periph.registers.items) |*reg| {
+                            try reg.periph_containing.insertSlice(0, data);
+                            for (reg.fields.items) |*field| {
+                                try field.periph.insertSlice(0, data);
                             }
                         }
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try cur_periph.description.replaceContents(data);
+                        try cur_periph.description.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "groupName")) {
                     if (chunk.data) |data| {
-                        try cur_periph.group_name.replaceContents(data);
+                        try cur_periph.group_name.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "baseAddress")) {
                     if (chunk.data) |data| {
@@ -171,7 +171,7 @@ pub fn main() anyerror!void {
                 }
             },
             .AddressBlock => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
+                var cur_periph = &dev.peripherals.items[dev.peripherals.items.len - 1];
                 var address_block = &cur_periph.address_block.?;
                 if (ascii.eqlIgnoreCase(chunk.tag, "/addressBlock")) {
                     state = .Peripheral;
@@ -185,23 +185,22 @@ pub fn main() anyerror!void {
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "usage")) {
                     if (chunk.data) |data| {
-                        try address_block.usage.replaceContents(data);
+                        try address_block.usage.insertSlice(0, data);
                     }
                 }
             },
             .Interrupt => {
-                const int_slice = dev.interrupts.toSlice();
-                var cur_interrupt = &int_slice[int_slice.len - 1];
+                var cur_interrupt = &dev.interrupts.items[dev.interrupts.items.len - 1];
 
                 if (ascii.eqlIgnoreCase(chunk.tag, "/interrupt")) {
                     state = .Peripheral;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try cur_interrupt.name.replaceContents(data);
+                        try cur_interrupt.name.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try cur_interrupt.description.replaceContents(data);
+                        try cur_interrupt.description.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "value")) {
                     if (chunk.data) |data| {
@@ -210,7 +209,7 @@ pub fn main() anyerror!void {
                 }
             },
             .Registers => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
+                var cur_periph = &dev.peripherals.items[dev.peripherals.items.len - 1];
                 if (ascii.eqlIgnoreCase(chunk.tag, "/registers")) {
                     state = .Peripheral;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "register")) {
@@ -219,27 +218,27 @@ pub fn main() anyerror!void {
 
                     const reset_value = dev.reg_default_reset_value orelse 0;
                     const size = dev.reg_default_size orelse 32;
-                    var register = try svd.Register.init(allocator, cur_periph.name.toSliceConst(), base_address, reset_value, size);
+                    var register = try svd.Register.init(allocator, cur_periph.name.items, base_address, reset_value, size);
                     try cur_periph.registers.append(register);
                     state = .Register;
                 }
             },
             .Register => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
-                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len - 1);
+                var cur_periph = &dev.peripherals.items[dev.peripherals.items.len - 1];
+                var cur_reg = &cur_periph.registers.items[cur_periph.registers.items.len - 1];
                 if (ascii.eqlIgnoreCase(chunk.tag, "/register")) {
                     state = .Registers;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try cur_reg.name.replaceContents(data);
+                        try cur_reg.name.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "displayName")) {
                     if (chunk.data) |data| {
-                        try cur_reg.display_name.replaceContents(data);
+                        try cur_reg.display_name.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try cur_reg.description.replaceContents(data);
+                        try cur_reg.description.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "addressOffset")) {
                     if (chunk.data) |data| {
@@ -262,29 +261,29 @@ pub fn main() anyerror!void {
                 }
             },
             .Fields => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
-                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len - 1);
+                var cur_periph = &dev.peripherals.items[dev.peripherals.items.len - 1];
+                var cur_reg = &cur_periph.registers.items[cur_periph.registers.items.len - 1];
                 if (ascii.eqlIgnoreCase(chunk.tag, "/fields")) {
                     state = .Register;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "field")) {
-                    var field = try svd.Field.init(allocator, cur_periph.name.toSliceConst(), cur_reg.name.toSliceConst());
+                    var field = try svd.Field.init(allocator, cur_periph.name.items, cur_reg.name.items);
                     try cur_reg.fields.append(field);
                     state = .Field;
                 }
             },
             .Field => {
-                var cur_periph = dev.peripherals.ptrAt(dev.peripherals.toSliceConst().len - 1);
-                var cur_reg = cur_periph.registers.ptrAt(cur_periph.registers.toSliceConst().len - 1);
-                var cur_field = cur_reg.fields.ptrAt(cur_reg.fields.toSliceConst().len - 1);
+                var cur_periph = &dev.peripherals.items[dev.peripherals.items.len - 1];
+                var cur_reg = &cur_periph.registers.items[cur_periph.registers.items.len - 1];
+                var cur_field = &cur_reg.fields.items[cur_reg.fields.items.len - 1];
                 if (ascii.eqlIgnoreCase(chunk.tag, "/field")) {
                     state = .Fields;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
-                        try cur_field.name.replaceContents(data);
+                        try cur_field.name.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "description")) {
                     if (chunk.data) |data| {
-                        try cur_field.description.replaceContents(data);
+                        try cur_field.description.insertSlice(0, data);
                     }
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "bitOffset")) {
                     if (chunk.data) |data| {

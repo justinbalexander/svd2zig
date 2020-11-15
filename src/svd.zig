@@ -1,15 +1,14 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const Buffer = std.Buffer;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const warn = std.debug.warn;
 
 /// Top Level
 pub const Device = struct {
-    name: Buffer,
-    version: Buffer,
-    description: Buffer,
+    name: ArrayList(u8),
+    version: ArrayList(u8),
+    description: ArrayList(u8),
     cpu: ?Cpu,
 
     /// Bus Interface Properties
@@ -29,11 +28,11 @@ pub const Device = struct {
     const Self = @This();
 
     pub fn init(allocator: *Allocator) !Self {
-        var name = try Buffer.init(allocator, "");
+        var name = ArrayList(u8).init(allocator);
         errdefer name.deinit();
-        var version = try Buffer.init(allocator, "");
+        var version = ArrayList(u8).init(allocator);
         errdefer version.deinit();
-        var description = try Buffer.init(allocator, "");
+        var description = ArrayList(u8).init(allocator);
         errdefer description.deinit();
         var peripherals = Peripherals.init(allocator);
         errdefer peripherals;
@@ -63,10 +62,10 @@ pub const Device = struct {
         self.interrupts.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
-        const name = if (self.name.len() == 0) "unknown" else self.name.toSliceConst();
-        const version = if (self.version.len() == 0) "unknown" else self.version.toSliceConst();
-        const description = if (self.description.len() == 0) "unknown" else self.description.toSliceConst();
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: anytype) !void {
+        const name = if (self.name.items.len == 0) "unknown" else self.name.items;
+        const version = if (self.version.items.len == 0) "unknown" else self.version.items;
+        const description = if (self.description.items.len == 0) "unknown" else self.description.items;
 
         try out_stream.print(
             \\pub const device_name = "{}";
@@ -78,16 +77,16 @@ pub const Device = struct {
             try out_stream.print("{}\n", .{the_cpu});
         }
         // now print peripherals
-        for (self.peripherals.toSliceConst()) |peripheral| {
+        for (self.peripherals.items) |peripheral| {
             try out_stream.print("{}\n", .{peripheral});
         }
         // now print interrupt table
         try out_stream.writeAll("pub const interrupts = struct {\n");
-        for (self.interrupts.toSliceConst()) |interrupt| {
+        for (self.interrupts.items) |interrupt| {
             if (interrupt.value) |int_value| {
                 try out_stream.print(
                     "pub const {} = {};\n",
-                    .{ interrupt.name.toSliceConst(), int_value },
+                    .{ interrupt.name.items, int_value },
                 );
             }
         }
@@ -97,9 +96,9 @@ pub const Device = struct {
 };
 
 pub const Cpu = struct {
-    name: Buffer,
-    revision: Buffer,
-    endian: Buffer,
+    name: ArrayList(u8),
+    revision: ArrayList(u8),
+    endian: ArrayList(u8),
     mpu_present: ?bool,
     fpu_present: ?bool,
     nvic_prio_bits: ?u32,
@@ -108,11 +107,11 @@ pub const Cpu = struct {
     const Self = @This();
 
     pub fn init(allocator: *Allocator) !Self {
-        var name = try Buffer.init(allocator, "");
+        var name = ArrayList(u8).init(allocator);
         errdefer name.deinit();
-        var revision = try Buffer.init(allocator, "");
+        var revision = ArrayList(u8).init(allocator);
         errdefer revision.deinit();
-        var endian = try Buffer.init(allocator, "");
+        var endian = ArrayList(u8).init(allocator);
         errdefer endian.deinit();
 
         return Self{
@@ -132,12 +131,12 @@ pub const Cpu = struct {
         self.endian.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: anytype) !void {
         try out_stream.writeAll("\n");
 
-        const name = if (self.name.len() == 0) "unknown" else self.name.toSliceConst();
-        const revision = if (self.revision.len() == 0) "unknown" else self.revision.toSliceConst();
-        const endian = if (self.endian.len() == 0) "unknown" else self.endian.toSliceConst();
+        const name = if (self.name.items.len == 0) "unknown" else self.name.items;
+        const revision = if (self.revision.items.len == 0) "unknown" else self.revision.items;
+        const endian = if (self.endian.items.len == 0) "unknown" else self.endian.items;
         const mpu_present = self.mpu_present orelse false;
         const fpu_present = self.mpu_present orelse false;
         const vendor_systick_config = self.vendor_systick_config orelse false;
@@ -165,9 +164,9 @@ pub const Cpu = struct {
 pub const Peripherals = ArrayList(Peripheral);
 
 pub const Peripheral = struct {
-    name: Buffer,
-    group_name: Buffer,
-    description: Buffer,
+    name: ArrayList(u8),
+    group_name: ArrayList(u8),
+    description: ArrayList(u8),
     base_address: ?u32,
     address_block: ?AddressBlock,
     registers: Registers,
@@ -175,11 +174,11 @@ pub const Peripheral = struct {
     const Self = @This();
 
     pub fn init(allocator: *Allocator) !Self {
-        var name = try Buffer.init(allocator, "");
+        var name = ArrayList(u8).init(allocator);
         errdefer name.deinit();
-        var group_name = try Buffer.init(allocator, "");
+        var group_name = ArrayList(u8).init(allocator);
         errdefer group_name.deinit();
-        var description = try Buffer.init(allocator, "");
+        var description = ArrayList(u8).init(allocator);
         errdefer description.deinit();
         var registers = Registers.init(allocator);
         errdefer registers.deinit();
@@ -198,12 +197,12 @@ pub const Peripheral = struct {
         var the_copy = try Self.init(allocator);
         errdefer the_copy.deinit();
 
-        try the_copy.name.append(self.name.toSliceConst());
-        try the_copy.group_name.append(self.group_name.toSliceConst());
-        try the_copy.description.append(self.description.toSliceConst());
+        try the_copy.name.appendSlice(self.name.items);
+        try the_copy.group_name.appendSlice(self.group_name.items);
+        try the_copy.description.appendSlice(self.description.items);
         the_copy.base_address = self.base_address;
         the_copy.address_block = self.address_block;
-        for (self.registers.toSliceConst()) |self_register| {
+        for (self.registers.items) |self_register| {
             try the_copy.registers.append(try self_register.copy(allocator));
         }
 
@@ -218,7 +217,7 @@ pub const Peripheral = struct {
     }
 
     pub fn isValid(self: Self) bool {
-        if (self.name.len() == 0) {
+        if (self.name.items.len == 0) {
             return false;
         }
         _ = self.base_address orelse return false;
@@ -226,21 +225,21 @@ pub const Peripheral = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: anytype) !void {
         try out_stream.writeAll("\n");
         if (!self.isValid()) {
             try out_stream.writeAll("// Not enough info to print register value\n");
             return;
         }
-        const name = self.name.toSlice();
-        const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        const name = self.name.items;
+        const description = if (self.description.items.len == 0) "No description" else self.description.items;
         try out_stream.print(
             \\/// {}
             \\pub const {}_Base_Address = 0x{x};
             \\
         , .{ description, name, self.base_address.? });
         // now print registers
-        for (self.registers.toSliceConst()) |register| {
+        for (self.registers.items) |register| {
             try out_stream.print("{}\n", .{register});
         }
 
@@ -251,12 +250,12 @@ pub const Peripheral = struct {
 pub const AddressBlock = struct {
     offset: ?u32,
     size: ?u32,
-    usage: Buffer,
+    usage: ArrayList(u8),
 
     const Self = @This();
 
     pub fn init(allocator: *Allocator) !Self {
-        var usage = try Buffer.init(allocator, "");
+        var usage = ArrayList(u8).init(allocator);
         errdefer usage.deinit();
 
         return Self{
@@ -274,16 +273,16 @@ pub const AddressBlock = struct {
 pub const Interrupts = ArrayList(Interrupt);
 
 pub const Interrupt = struct {
-    name: Buffer,
-    description: Buffer,
+    name: ArrayList(u8),
+    description: ArrayList(u8),
     value: ?u32,
 
     const Self = @This();
 
     pub fn init(allocator: *Allocator) !Self {
-        var name = try Buffer.init(allocator, "");
+        var name = ArrayList(u8).init(allocator);
         errdefer name.deinit();
-        var description = try Buffer.init(allocator, "");
+        var description = ArrayList(u8).init(allocator);
         errdefer description.deinit();
 
         return Self{
@@ -296,8 +295,8 @@ pub const Interrupt = struct {
     pub fn copy(self: Self, allocator: *Allocator) !Self {
         var the_copy = try Self.init(allocator);
 
-        try the_copy.name.append(self.name.toSliceConst());
-        try the_copy.description.append(self.description.toSliceConst());
+        try the_copy.name.append(self.name.items);
+        try the_copy.description.append(self.description.items);
         the_copy.value = self.value;
 
         return the_copy;
@@ -309,7 +308,7 @@ pub const Interrupt = struct {
     }
 
     pub fn isValid(self: Self) bool {
-        if (self.name.len() == 0) {
+        if (self.name.items.len == 0) {
             return false;
         }
         _ = self.value orelse return false;
@@ -317,14 +316,14 @@ pub const Interrupt = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: anytype) !void {
         try out_stream.writeAll("\n");
         if (!self.isValid()) {
             try output(context, "// Not enough info to print interrupt value\n");
             return;
         }
-        const name = self.name.toSlice();
-        const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        const name = self.name.items;
+        const description = if (self.description.items.len == 0) "No description" else self.description.items;
         try out_stream.print(
             \\/// {}
             \\pub const {} = {};
@@ -336,10 +335,10 @@ pub const Interrupt = struct {
 const Registers = ArrayList(Register);
 
 pub const Register = struct {
-    periph_containing: Buffer,
-    name: Buffer,
-    display_name: Buffer,
-    description: Buffer,
+    periph_containing: ArrayList(u8),
+    name: ArrayList(u8),
+    display_name: ArrayList(u8),
+    description: ArrayList(u8),
     base_address: u32, // must come from peripheral
     address_offset: ?u32,
     size: u32,
@@ -351,18 +350,17 @@ pub const Register = struct {
     const Self = @This();
 
     pub fn init(allocator: *Allocator, periph: []const u8, base_address: u32, reset_value: u32, size: u32) !Self {
-        var prefix = try Buffer.init(allocator, "");
+        var prefix = ArrayList(u8).init(allocator);
         errdefer prefix.deinit();
-        var name = try Buffer.init(allocator, "");
+        try prefix.appendSlice(periph);
+        var name = ArrayList(u8).init(allocator);
         errdefer name.deinit();
-        var display_name = try Buffer.init(allocator, "");
+        var display_name = ArrayList(u8).init(allocator);
         errdefer display_name.deinit();
-        var description = try Buffer.init(allocator, "");
+        var description = ArrayList(u8).init(allocator);
         errdefer description.deinit();
         var fields = Fields.init(allocator);
         errdefer fields.deinit();
-
-        try prefix.replaceContents(periph);
 
         return Self{
             .periph_containing = prefix,
@@ -378,14 +376,14 @@ pub const Register = struct {
     }
 
     pub fn copy(self: Self, allocator: *Allocator) !Self {
-        var the_copy = try Self.init(allocator, self.periph_containing.toSliceConst(), self.base_address, self.reset_value, self.size);
+        var the_copy = try Self.init(allocator, self.periph_containing.items, self.base_address, self.reset_value, self.size);
 
-        try the_copy.name.append(self.name.toSliceConst());
-        try the_copy.display_name.append(self.display_name.toSliceConst());
-        try the_copy.description.append(self.description.toSliceConst());
+        try the_copy.name.appendSlice(self.name.items);
+        try the_copy.display_name.appendSlice(self.display_name.items);
+        try the_copy.description.appendSlice(self.description.items);
         the_copy.address_offset = self.address_offset;
         the_copy.access = self.access;
-        for (self.fields.toSliceConst()) |self_field| {
+        for (self.fields.items) |self_field| {
             try the_copy.fields.append(try self_field.copy(allocator));
         }
 
@@ -402,7 +400,7 @@ pub const Register = struct {
     }
 
     pub fn isValid(self: Self) bool {
-        if (self.name.len() == 0) {
+        if (self.name.items.len == 0) {
             return false;
         }
         _ = self.address_offset orelse return false;
@@ -410,15 +408,15 @@ pub const Register = struct {
         return true;
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: anytype) !void {
         try out_stream.writeAll("\n");
         if (!self.isValid()) {
             try out_stream.writeAll("// Not enough info to print register value\n");
             return;
         }
-        const name = self.name.toSliceConst();
-        const periph = self.periph_containing.toSliceConst();
-        const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        const name = self.name.items;
+        const periph = self.periph_containing.items;
+        const description = if (self.description.items.len == 0) "No description" else self.description.items;
         try out_stream.print(
             \\/// {}
             \\
@@ -439,7 +437,7 @@ pub const Register = struct {
             self.reset_value,
         });
         var write_mask: u32 = 0;
-        for (self.fields.toSliceConst()) |field| {
+        for (self.fields.items) |field| {
             if (field.bit_offset) |def_offset| {
                 if (field.bit_width) |def_width| {
                     if (field.access != .ReadOnly) {
@@ -465,7 +463,7 @@ pub const Register = struct {
             name,
         });
         // now print fields
-        for (self.fields.toSliceConst()) |field| {
+        for (self.fields.items) |field| {
             try out_stream.print("{}\n", .{field});
         }
 
@@ -482,10 +480,10 @@ pub const Access = enum {
 pub const Fields = ArrayList(Field);
 
 pub const Field = struct {
-    periph: Buffer,
-    register: Buffer,
-    name: Buffer,
-    description: Buffer,
+    periph: ArrayList(u8),
+    register: ArrayList(u8),
+    name: ArrayList(u8),
+    description: ArrayList(u8),
     bit_offset: ?u32,
     bit_width: ?u32,
 
@@ -494,13 +492,15 @@ pub const Field = struct {
     const Self = @This();
 
     pub fn init(allocator: *Allocator, periph_containing: []const u8, register_containing: []const u8) !Self {
-        var periph = try Buffer.init(allocator, periph_containing);
+        var periph = ArrayList(u8).init(allocator);
+        try periph.appendSlice(periph_containing);
         errdefer periph.deinit();
-        var register = try Buffer.init(allocator, register_containing);
+        var register = ArrayList(u8).init(allocator);
+        try register.appendSlice(register_containing);
         errdefer register.deinit();
-        var name = try Buffer.init(allocator, "");
+        var name = ArrayList(u8).init(allocator);
         errdefer name.deinit();
-        var description = try Buffer.init(allocator, "");
+        var description = ArrayList(u8).init(allocator);
         errdefer description.deinit();
 
         return Self{
@@ -514,10 +514,10 @@ pub const Field = struct {
     }
 
     pub fn copy(self: Self, allocator: *Allocator) !Self {
-        var the_copy = try Self.init(allocator, self.periph.toSliceConst(), self.register.toSliceConst());
+        var the_copy = try Self.init(allocator, self.periph.items, self.register.items);
 
-        try the_copy.name.append(self.name.toSliceConst());
-        try the_copy.description.append(self.description.toSliceConst());
+        try the_copy.name.appendSlice(self.name.items);
+        try the_copy.description.appendSlice(self.description.items);
         the_copy.bit_offset = self.bit_offset;
         the_copy.bit_width = self.bit_width;
         the_copy.access = self.access;
@@ -532,9 +532,9 @@ pub const Field = struct {
         self.description.deinit();
     }
 
-    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: var) !void {
+    pub fn format(self: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, out_stream: anytype) !void {
         try out_stream.writeAll("\n");
-        if (self.name.len() == 0) {
+        if (self.name.items.len == 0) {
             try out_stream.writeAll("// No name to print field value\n");
             return;
         }
@@ -542,10 +542,10 @@ pub const Field = struct {
             try out_stream.writeAll("// Not enough info to print field\n");
             return;
         }
-        const name = self.name.toSlice();
-        const periph = self.periph.toSliceConst();
-        const register = self.register.toSliceConst();
-        const description = if (self.description.len() == 0) "No description" else self.description.toSliceConst();
+        const name = self.name.items;
+        const periph = self.periph.items;
+        const register = self.register.items;
+        const description = if (self.description.items.len == 0) "No description" else self.description.items;
         const offset = self.bit_offset.?;
         const base_mask = bitWidthToMask(self.bit_width.?);
         try out_stream.print(
@@ -599,20 +599,20 @@ test "Field print" {
         \\
     ;
 
-    var output_buffer = try Buffer.init(allocator, "");
+    var output_buffer = ArrayList(u8).init(allocator);
     defer output_buffer.deinit();
-    var buf_stream = &std.io.BufferOutStream.init(&output_buffer).stream;
+    var buf_stream = output_buffer.writer();
 
     var field = try Field.init(allocator, "PERIPH", "RND");
     defer field.deinit();
 
-    try field.name.append("RNGEN");
-    try field.description.append("RNGEN comment");
+    try field.name.appendSlice("RNGEN");
+    try field.description.appendSlice("RNGEN comment");
     field.bit_offset = 2;
     field.bit_width = 1;
 
     try buf_stream.print("{}\n", .{field});
-    std.testing.expect(output_buffer.eql(fieldDesiredPrint));
+    std.testing.expect(std.mem.eql(u8, output_buffer.items, fieldDesiredPrint));
 }
 
 test "Register Print" {
@@ -636,22 +636,22 @@ test "Register Print" {
         \\
     ;
 
-    var output_buffer = try Buffer.init(allocator, "");
+    var output_buffer = ArrayList(u8).init(allocator);
     defer output_buffer.deinit();
-    var buf_stream = &std.io.BufferOutStream.init(&output_buffer).stream;
+    var buf_stream = output_buffer.writer();
 
     var register = try Register.init(allocator, "PERIPH", 0x24000, 0, 0x20);
     defer register.deinit();
-    try register.name.append("RND");
-    try register.description.append("RND comment");
+    try register.name.appendSlice("RND");
+    try register.description.appendSlice("RND comment");
     register.address_offset = 0x100;
     register.size = 0x20;
 
     var field = try Field.init(allocator, "PERIPH", "RND");
     defer field.deinit();
 
-    try field.name.append("RNGEN");
-    try field.description.append("RNGEN comment");
+    try field.name.appendSlice("RNGEN");
+    try field.description.appendSlice("RNGEN comment");
     field.bit_offset = 2;
     field.bit_width = 1;
     field.access = .ReadWrite; // write field will exist
@@ -659,8 +659,7 @@ test "Register Print" {
     try register.fields.append(field);
 
     try buf_stream.print("{}\n", .{register});
-    var expected = output_buffer.toSlice();
-    std.testing.expectEqualSlices(u8, expected, registerDesiredPrint);
+    std.testing.expectEqualSlices(u8, output_buffer.items, registerDesiredPrint);
 }
 
 test "Peripheral Print" {
@@ -688,28 +687,28 @@ test "Peripheral Print" {
         \\
     ;
 
-    var output_buffer = try Buffer.init(allocator, "");
+    var output_buffer = ArrayList(u8).init(allocator);
     defer output_buffer.deinit();
-    var buf_stream = &std.io.BufferOutStream.init(&output_buffer).stream;
+    var buf_stream = output_buffer.writer();
 
     var peripheral = try Peripheral.init(allocator);
     defer peripheral.deinit();
-    try peripheral.name.append("PERIPH");
-    try peripheral.description.append("PERIPH comment");
+    try peripheral.name.appendSlice("PERIPH");
+    try peripheral.description.appendSlice("PERIPH comment");
     peripheral.base_address = 0x24000;
 
     var register = try Register.init(allocator, "PERIPH", peripheral.base_address.?, 0, 0x20);
     defer register.deinit();
-    try register.name.append("RND");
-    try register.description.append("RND comment");
+    try register.name.appendSlice("RND");
+    try register.description.appendSlice("RND comment");
     register.address_offset = 0x100;
     register.size = 0x20;
 
     var field = try Field.init(allocator, "PERIPH", "RND");
     defer field.deinit();
 
-    try field.name.append("RNGEN");
-    try field.description.append("RNGEN comment");
+    try field.name.appendSlice("RNGEN");
+    try field.description.appendSlice("RNGEN comment");
     field.bit_offset = 2;
     field.bit_width = 1;
     field.access = .ReadOnly; // since only register, write field will not exist
@@ -719,7 +718,7 @@ test "Peripheral Print" {
     try peripheral.registers.append(register);
 
     try buf_stream.print("{}\n", .{peripheral});
-    std.testing.expectEqualSlices(u8, peripheralDesiredPrint, output_buffer.toSliceConst());
+    std.testing.expectEqualSlices(u8, peripheralDesiredPrint, output_buffer.items);
 }
 fn bitWidthToMask(width: u32) u32 {
     const max_supported_bits = 32;
