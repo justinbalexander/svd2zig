@@ -213,12 +213,9 @@ pub fn main() anyerror!void {
                 if (ascii.eqlIgnoreCase(chunk.tag, "/registers")) {
                     state = .Peripheral;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "register")) {
-                    if (cur_periph.base_address == null) break;
-                    const base_address = cur_periph.base_address.?;
-
                     const reset_value = dev.reg_default_reset_value orelse 0;
                     const size = dev.reg_default_size orelse 32;
-                    var register = try svd.Register.init(allocator, cur_periph.name.items, base_address, reset_value, size);
+                    var register = try svd.Register.init(allocator, cur_periph.name.items, reset_value, size);
                     try cur_periph.registers.append(register);
                     state = .Register;
                 }
