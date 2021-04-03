@@ -26,6 +26,7 @@ pub fn main() anyerror!void {
 
     var state = SvdParseState.Device;
     var dev = try svd.Device.init(allocator);
+    var cur_interrupt: svd.Interrupt = undefined;
     while (try stream.readUntilDelimiterOrEof(&line_buffer, '\n')) |line| {
         if (line.len == 0) {
             break;
@@ -163,8 +164,7 @@ pub fn main() anyerror!void {
                     }
                     state = .AddressBlock;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "interrupt")) {
-                    var interrupt = try svd.Interrupt.init(allocator);
-                    try dev.interrupts.append(interrupt);
+                    cur_interrupt = try svd.Interrupt.init(allocator);
                     state = .Interrupt;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "registers")) {
                     state = .Registers;
@@ -190,9 +190,26 @@ pub fn main() anyerror!void {
                 }
             },
             .Interrupt => {
-                var cur_interrupt = &dev.interrupts.items[dev.interrupts.items.len - 1];
-
                 if (ascii.eqlIgnoreCase(chunk.tag, "/interrupt")) {
+                    if (cur_interrupt.value) |value| {
+                        // If we find a duplicate interrupt, deinit the old one
+                        if (try dev.interrupts.fetchPut(value, cur_interrupt)) |old_entry| {
+                            var old_interrupt = old_entry.value;
+                            var old_name = old_interrupt.name.items;
+                            var cur_name = cur_interrupt.name.items;
+                            if (!mem.eql(u8, old_name, cur_name)) {
+                                warn(
+                                    \\ Found duplicate interrupt values with different names: {s} and {s}
+                                    \\ The latter will be discarded.
+                                    \\
+                                , .{
+                                    cur_name,
+                                    old_name,
+                                });
+                            }
+                            old_interrupt.deinit();
+                        }
+                    }
                     state = .Peripheral;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {

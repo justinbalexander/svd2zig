@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
+const AutoHashMap = std.AutoHashMap;
 const warn = std.debug.warn;
 
 /// Top Level
@@ -82,7 +83,9 @@ pub const Device = struct {
         }
         // now print interrupt table
         try out_stream.writeAll("pub const interrupts = struct {\n");
-        for (self.interrupts.items) |interrupt| {
+        var iter = self.interrupts.iterator();
+        while (iter.next()) |entry| {
+            var interrupt = entry.value;
             if (interrupt.value) |int_value| {
                 try out_stream.print(
                     "pub const {s} = {};\n",
@@ -270,7 +273,7 @@ pub const AddressBlock = struct {
     }
 };
 
-pub const Interrupts = ArrayList(Interrupt);
+pub const Interrupts = AutoHashMap(u32, Interrupt);
 
 pub const Interrupt = struct {
     name: ArrayList(u8),
