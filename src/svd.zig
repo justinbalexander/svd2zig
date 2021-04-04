@@ -68,9 +68,9 @@ pub const Device = struct {
         const description = if (self.description.items.len == 0) "unknown" else self.description.items;
 
         try out_stream.print(
-            \\pub const device_name = "{}";
-            \\pub const device_revision = "{}";
-            \\pub const device_description = "{}";
+            \\pub const device_name = "{s}";
+            \\pub const device_revision = "{s}";
+            \\pub const device_description = "{s}";
             \\
         , .{ name, version, description });
         if (self.cpu) |the_cpu| {
@@ -85,7 +85,7 @@ pub const Device = struct {
         for (self.interrupts.items) |interrupt| {
             if (interrupt.value) |int_value| {
                 try out_stream.print(
-                    "pub const {} = {};\n",
+                    "pub const {s} = {};\n",
                     .{ interrupt.name.items, int_value },
                 );
             }
@@ -142,9 +142,9 @@ pub const Cpu = struct {
         const vendor_systick_config = self.vendor_systick_config orelse false;
         try out_stream.print(
             \\pub const cpu = struct {{
-            \\    pub const name = "{}";
-            \\    pub const revision = "{}";
-            \\    pub const endian = "{}";
+            \\    pub const name = "{s}";
+            \\    pub const revision = "{s}";
+            \\    pub const endian = "{s}";
             \\    pub const mpu_present = {};
             \\    pub const fpu_present = {};
             \\    pub const vendor_systick_config = {};
@@ -234,8 +234,8 @@ pub const Peripheral = struct {
         const name = self.name.items;
         const description = if (self.description.items.len == 0) "No description" else self.description.items;
         try out_stream.print(
-            \\/// {}
-            \\pub const {}_Base_Address = 0x{x};
+            \\/// {s}
+            \\pub const {s}_Base_Address = 0x{x};
             \\
         , .{ description, name, self.base_address.? });
         // now print registers
@@ -325,8 +325,8 @@ pub const Interrupt = struct {
         const name = self.name.items;
         const description = if (self.description.items.len == 0) "No description" else self.description.items;
         try out_stream.print(
-            \\/// {}
-            \\pub const {} = {};
+            \\/// {s}
+            \\pub const {s} = {s};
             \\
         , .{ description, name, value.? });
     }
@@ -418,12 +418,12 @@ pub const Register = struct {
         const periph = self.periph_containing.items;
         const description = if (self.description.items.len == 0) "No description" else self.description.items;
         try out_stream.print(
-            \\/// {}
+            \\/// {s}
             \\
         , .{description});
         try out_stream.print(
-            \\pub const {}_{}_Address = 0x{x} + 0x{x};
-            \\pub const {}_{}_Reset_Value = 0x{x};
+            \\pub const {s}_{s}_Address = 0x{x} + 0x{x};
+            \\pub const {s}_{s}_Reset_Value = 0x{x};
             \\
         , .{
             // address
@@ -447,8 +447,8 @@ pub const Register = struct {
             }
         }
         const ptr_str =
-            \\pub const {}_{}_Write_Mask = 0x{x};
-            \\pub const {}_{}_Ptr = @intToPtr(*volatile u{}, {}_{}_Address);
+            \\pub const {s}_{s}_Write_Mask = 0x{x};
+            \\pub const {s}_{s}_Ptr = @intToPtr(*volatile u{}, {s}_{s}_Address);
             \\
         ;
 
@@ -549,11 +549,11 @@ pub const Field = struct {
         const offset = self.bit_offset.?;
         const base_mask = bitWidthToMask(self.bit_width.?);
         try out_stream.print(
-            \\/// {}
-            \\pub const {}_{}_{}_Offset = {};
-            \\pub const {}_{}_{}_Mask = 0x{x} << {}_{}_{}_Offset;
-            \\pub inline fn {}_{}_{}(setting: u32) u32 {{
-            \\    return (setting & 0x{x}) << {}_{}_{}_Offset;
+            \\/// {s}
+            \\pub const {s}_{s}_{s}_Offset = {};
+            \\pub const {s}_{s}_{s}_Mask = 0x{x} << {s}_{s}_{s}_Offset;
+            \\pub inline fn {s}_{s}_{s}(setting: u32) u32 {{
+            \\    return (setting & 0x{x}) << {s}_{s}_{s}_Offset;
             \\}}
             \\
         , .{
@@ -726,12 +726,12 @@ fn bitWidthToMask(width: u32) u32 {
         comptime var mask_array: [max_supported_bits + 1]u32 = undefined;
         inline for (mask_array) |*item, i| {
             const i_use = if (i == 0) max_supported_bits else i;
-            item.* = std.math.maxInt(@Type(builtin.TypeInfo{
-                .Int = .{
-                    .is_signed = false,
-                    .bits = i_use,
-                },
-            }));
+            // This is needed to support both Zig 0.7 and 0.8
+            const int_type_info =
+                if (@hasField(builtin.TypeInfo.Int, "signedness"))
+            .{ .signedness = .unsigned, .bits = i_use } else .{ .is_signed = false, .bits = i_use };
+
+            item.* = std.math.maxInt(@Type(builtin.TypeInfo{ .Int = int_type_info }));
         }
         break :blk mask_array;
     };
