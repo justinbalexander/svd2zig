@@ -134,11 +134,11 @@ pub fn main() anyerror!void {
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "name")) {
                     if (chunk.data) |data| {
                         // periph could be copy, must update periph name in sub-fields
-                        try cur_periph.name.insertSlice(0, data);
+                        try cur_periph.name.replaceRange(0, cur_periph.name.items.len, data);
                         for (cur_periph.registers.items) |*reg| {
-                            try reg.periph_containing.insertSlice(0, data);
+                            try reg.periph_containing.replaceRange(0, reg.periph_containing.items.len, data);
                             for (reg.fields.items) |*field| {
-                                try field.periph.insertSlice(0, data);
+                                try field.periph.replaceRange(0, field.periph.items.len, data);
                             }
                         }
                     }
@@ -213,12 +213,9 @@ pub fn main() anyerror!void {
                 if (ascii.eqlIgnoreCase(chunk.tag, "/registers")) {
                     state = .Peripheral;
                 } else if (ascii.eqlIgnoreCase(chunk.tag, "register")) {
-                    if (cur_periph.base_address == null) break;
-                    const base_address = cur_periph.base_address.?;
-
                     const reset_value = dev.reg_default_reset_value orelse 0;
                     const size = dev.reg_default_size orelse 32;
-                    var register = try svd.Register.init(allocator, cur_periph.name.items, base_address, reset_value, size);
+                    var register = try svd.Register.init(allocator, cur_periph.name.items, reset_value, size);
                     try cur_periph.registers.append(register);
                     state = .Register;
                 }

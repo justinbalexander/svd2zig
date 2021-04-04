@@ -339,7 +339,6 @@ pub const Register = struct {
     name: ArrayList(u8),
     display_name: ArrayList(u8),
     description: ArrayList(u8),
-    base_address: u32, // must come from peripheral
     address_offset: ?u32,
     size: u32,
     reset_value: u32,
@@ -349,7 +348,7 @@ pub const Register = struct {
 
     const Self = @This();
 
-    pub fn init(allocator: *Allocator, periph: []const u8, base_address: u32, reset_value: u32, size: u32) !Self {
+    pub fn init(allocator: *Allocator, periph: []const u8, reset_value: u32, size: u32) !Self {
         var prefix = ArrayList(u8).init(allocator);
         errdefer prefix.deinit();
         try prefix.appendSlice(periph);
@@ -367,7 +366,6 @@ pub const Register = struct {
             .name = name,
             .display_name = display_name,
             .description = description,
-            .base_address = base_address,
             .address_offset = null,
             .size = size,
             .reset_value = reset_value,
@@ -376,7 +374,7 @@ pub const Register = struct {
     }
 
     pub fn copy(self: Self, allocator: *Allocator) !Self {
-        var the_copy = try Self.init(allocator, self.periph_containing.items, self.base_address, self.reset_value, self.size);
+        var the_copy = try Self.init(allocator, self.periph_containing.items, self.reset_value, self.size);
 
         try the_copy.name.appendSlice(self.name.items);
         try the_copy.display_name.appendSlice(self.display_name.items);
@@ -422,14 +420,14 @@ pub const Register = struct {
             \\
         , .{description});
         try out_stream.print(
-            \\pub const {s}_{s}_Address = 0x{x} + 0x{x};
+            \\pub const {s}_{s}_Address = {s}_Base_Address + 0x{x};
             \\pub const {s}_{s}_Reset_Value = 0x{x};
             \\
         , .{
             // address
             periph,
             name,
-            self.base_address,
+            periph,
             self.address_offset.?,
             // reset value
             periph,
@@ -620,7 +618,7 @@ test "Register Print" {
     const registerDesiredPrint =
         \\
         \\/// RND comment
-        \\pub const PERIPH_RND_Address = 0x24000 + 0x100;
+        \\pub const PERIPH_RND_Address = PERIPH_Base_Address + 0x100;
         \\pub const PERIPH_RND_Reset_Value = 0x0;
         \\pub const PERIPH_RND_Write_Mask = 0x4;
         \\pub const PERIPH_RND_Ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
@@ -640,7 +638,7 @@ test "Register Print" {
     defer output_buffer.deinit();
     var buf_stream = output_buffer.writer();
 
-    var register = try Register.init(allocator, "PERIPH", 0x24000, 0, 0x20);
+    var register = try Register.init(allocator, "PERIPH", 0, 0x20);
     defer register.deinit();
     try register.name.appendSlice("RND");
     try register.description.appendSlice("RND comment");
@@ -670,7 +668,7 @@ test "Peripheral Print" {
         \\pub const PERIPH_Base_Address = 0x24000;
         \\
         \\/// RND comment
-        \\pub const PERIPH_RND_Address = 0x24000 + 0x100;
+        \\pub const PERIPH_RND_Address = PERIPH_Base_Address + 0x100;
         \\pub const PERIPH_RND_Reset_Value = 0x0;
         \\pub const PERIPH_RND_Write_Mask = 0x0;
         \\pub const PERIPH_RND_Ptr = @intToPtr(*volatile u32, PERIPH_RND_Address);
@@ -697,7 +695,7 @@ test "Peripheral Print" {
     try peripheral.description.appendSlice("PERIPH comment");
     peripheral.base_address = 0x24000;
 
-    var register = try Register.init(allocator, "PERIPH", peripheral.base_address.?, 0, 0x20);
+    var register = try Register.init(allocator, "PERIPH", 0, 0x20);
     defer register.deinit();
     try register.name.appendSlice("RND");
     try register.description.appendSlice("RND comment");
