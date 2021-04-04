@@ -35,9 +35,9 @@ pub const Device = struct {
         var description = ArrayList(u8).init(allocator);
         errdefer description.deinit();
         var peripherals = Peripherals.init(allocator);
-        errdefer peripherals;
+        errdefer peripherals.deinit();
         var interrupts = Interrupts.init(allocator);
-        errdefer interrupts;
+        errdefer interrupts.deinit();
 
         return Self{
             .name = name,
